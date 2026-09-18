@@ -14,7 +14,11 @@ async function verificarEEnviarEmails() {
             for (let i = 0; i < resultado.length; i++) {
                 let usuario = resultado[i];
                 let assunto = "Seu acesso foi criado";
-                let texto = `Olá ${usuario.nome}, seu e-mail é ${usuario.email} e sua senha é ${usuario.senha}`;
+                let texto = `Olá, ${usuario.nome}! 
+Seu acesso foi criado com sucesso. Seguem abaixo os seus dados temporários para login:
+E-mail: ${usuario.email}
+Senha: ${usuario.senha}
+Seja bem-vindo(a)!`
 
                 try {
                     await email.send(usuario.email, assunto, texto);
@@ -34,7 +38,7 @@ async function verificarEEnviarEmails() {
 }
 
 //isso aqui da 10 minutos altere aqui para testar
-cron.schedule("*/10 * * * *", () => {
+cron.schedule("*/1 * * * *", () => {
     verificarEEnviarEmails();
 });
 
