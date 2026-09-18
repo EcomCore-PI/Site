@@ -129,7 +129,7 @@ def discretizar_rede(rede):
 #         return "Perigo"
 
 def capturar():
-    for i in range(10):
+    for i in range(5):
         cpu = p.cpu_percent(interval=1)
         memoria = p.virtual_memory().percent
         disco = p.disk_usage("C:\\").percent
