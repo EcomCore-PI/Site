@@ -4,22 +4,22 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "start:web": "node app.js",
-    "start:monitoramento": "cd public/Monitoramento && python servidor.py",
+    "start:web": "node src/database/config.js && node app.js",
+    "start:monitoramento": "cd public/Monitoramento && python3 servidor.py",
     "start": "concurrently \"npm run start:web\" \"npm run start:monitoramento\"",
     "dev": "nodemon --exec node app.js"
   },
   "author": "Feito pelos desenvolvedores @ São Paulo Tech School / Bandtec Digital School",
   "license": "MIT",
   "dependencies": {
+    "concurrently": "^10.0.5",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
+    "dotenv": "^16.6.1",
     "express": "^4.17.1",
     "mysql2": "^3.24.3",
     "node-cron": "^4.6.0",
     "nodemailer": "^9.1.1",
     "nodemon": "^2.0.7",
-    "concurrently": "^10.0.5",
     "path": "^0.12.7"
   }
 }

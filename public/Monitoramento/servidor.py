@@ -1,7 +1,53 @@
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import json
+import os
+import threading
 import psutil as p
 import time as t
+import mysql.connector
+
+# ---------------------------------------------------------------
+# Configuração
+# ---------------------------------------------------------------
+# Lê as credenciais do banco do mesmo .env.dev usado pelo Node
+# (Site/.env.dev). Este arquivo fica em Site/public/Monitoramento/
+PASTA_ATUAL = os.path.dirname(os.path.abspath(__file__))
+CAMINHO_ENV = os.path.join(PASTA_ATUAL, "..", "..", ".env.dev")
+
+# Intervalo entre cada gravação no banco (segundos)
+INTERVALO_GRAVACAO = 5
+
+
+def carregar_env(caminho):
+    variaveis = {}
+    try:
+        with open(caminho, encoding="utf-8") as f:
+            for linha in f:
+                linha = linha.strip()
+                if not linha or linha.startswith("#") or "=" not in linha:
+                    continue
+                chave, valor = linha.split("=", 1)
+                variaveis[chave.strip()] = valor.strip().strip("'").strip('"')
+    except FileNotFoundError:
+        print(f"[ERRO] Arquivo .env não encontrado em: {os.path.abspath(caminho)}")
+    return variaveis
+
+
+ENV = carregar_env(CAMINHO_ENV)
+
+CONFIG_BANCO = {
+    "host": ENV.get("DB_HOST"),
+    "user": ENV.get("DB_USER"),
+    "password": ENV.get("DB_PASSWORD"),
+    "database": ENV.get("DB_DATABASE"),
+    "port": int(ENV.get("DB_PORT", 3306)),
+    "connection_timeout": 10,
+}
+
+# ID do servidor (tabela `servidor`) ao qual as capturas pertencem.
+# Esse id PRECISA existir na tabela servidor, senão o insert falha (FK).
+# Para trocar, adicione ID_SERVIDOR=2 no .env.dev
+ID_SERVIDOR = int(ENV.get("ID_SERVIDOR", 1))
 
 
 def coletar_dados():
@@ -24,9 +70,10 @@ def coletar_dados():
     disco_total = round(disco.total / (1024 ** 3), 2)
     disco_used = round(disco.used / (1024 ** 3), 2)
     disco_free = round(disco.free / (1024 ** 3), 2)
+    disco_percent = disco.percent
 
-    bytes_recebidos = round((p.net_io_counters().bytes_recv / pow(1024,2)),2)
-    bytes_enviados = round((p.net_io_counters().bytes_sent / pow(1024,2)),2)
+    bytes_recebidos = round((p.net_io_counters().bytes_recv / pow(1024, 2)), 2)
+    bytes_enviados = round((p.net_io_counters().bytes_sent / pow(1024, 2)), 2)
     mbps_total = round((bytes_recebidos - bytes_enviados), 2)
 
     horario = t.localtime()
@@ -42,6 +89,7 @@ def coletar_dados():
         "disco_total": disco_total,
         "disco_used": disco_used,
         "disco_free": disco_free,
+        "disco_percent": disco_percent,
         "bytes_recebidos": bytes_recebidos,
         "bytes_enviados": bytes_enviados,
         "mbps_total": mbps_total,
@@ -49,6 +97,50 @@ def coletar_dados():
     }
 
 
+# ---------------------------------------------------------------
+# Gravação no banco
+# ---------------------------------------------------------------
+def gravar_capturas(dados):
+    # (nome, valor, unidade_de_medida) -> mesmas colunas da tabela `captura`
+    # Os nomes 'CPU' e 'Memoria RAM' seguem os exemplos do banco-ecommerce.sql
+    capturas = [
+        ("CPU", dados["cpu_percent"], "%"),
+        ("Memoria RAM", dados["memoria_percent"], "%"),
+        ("Disco", dados["disco_percent"], "%"),
+        ("Rede Recebida", dados["bytes_recebidos"], "MB"),
+        ("Rede Enviada", dados["bytes_enviados"], "MB"),
+    ]
+
+    conexao = mysql.connector.connect(**CONFIG_BANCO)
+    try:
+        cursor = conexao.cursor()
+        cursor.executemany(
+            "INSERT INTO captura (nome, valor, unidade_de_medida, fk_servidor) "
+            "VALUES (%s, %s, %s, %s)",
+            [(nome, valor, unidade, ID_SERVIDOR) for nome, valor, unidade in capturas],
+        )
+        conexao.commit()
+        cursor.close()
+    finally:
+        conexao.close()
+
+
+def loop_gravacao():
+    while True:
+        try:
+            dados = coletar_dados()
+            gravar_capturas(dados)
+            print(f"[OK] Capturas gravadas no banco (servidor {ID_SERVIDOR}) "
+                  f"às {dados['horario_formatado']}")
+        except Exception as erro:
+            # Imprime o motivo real para facilitar o diagnóstico
+            print(f"[ERRO] Não foi possível gravar no banco: {erro}")
+        t.sleep(INTERVALO_GRAVACAO)
+
+
+# ---------------------------------------------------------------
+# Servidor HTTP (mantém o /dados que o script.js usa)
+# ---------------------------------------------------------------
 class Servidor(SimpleHTTPRequestHandler):
 
     def do_GET(self):
@@ -70,9 +162,15 @@ class Servidor(SimpleHTTPRequestHandler):
             super().do_GET()
 
 
-servidor = HTTPServer(("localhost", 8000), Servidor)
+if __name__ == "__main__":
+    print(f"Banco: {CONFIG_BANCO['host']}:{CONFIG_BANCO['port']} / {CONFIG_BANCO['database']}")
 
-print("Servidor iniciado!")
-print("Acesse http://localhost:8000")
+    # Thread separada para gravar no banco sem travar o servidor HTTP
+    threading.Thread(target=loop_gravacao, daemon=True).start()
 
-servidor.serve_forever()
+    servidor = HTTPServer(("localhost", 8000), Servidor)
+
+    print("Servidor iniciado!")
+    print("Acesse http://localhost:8000")
+
+    servidor.serve_forever()
