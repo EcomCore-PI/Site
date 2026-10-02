@@ -166,7 +166,7 @@ a:focus-visible {
 
   background-image:
     linear-gradient(90deg,rgba(19, 38, 58, 0.55) 35%, rgba(0, 69, 143, 0.78)),
-    url('../assets/imgs/fundo.avif');
+    url('../assets/imgs/fundo.jpg');
   background-size: cover;
   background-position: center;
 }
