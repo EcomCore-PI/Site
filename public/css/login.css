@@ -1,0 +1,202 @@
+/* --- PALETA DE CORES ECOMCORE --- */
+:root {
+    /* Paleta oficial da EcomCore */
+    --azul-marinho: #13263A;   
+    --azul: #00458F;           
+    --azul-petroleo: #00458F;  
+    --verde-agua: #C2CE75;     
+    --azul-aco: #13263A;       
+    --vinho: #8F0A00;         
+    --amarelo-neon: #DEFF00;   
+    --branco: #DBE3EE;
+
+    /* Cores de apoio */
+    --fundo-claro: #F2F5FA;
+    --linha-clara: #00458F;
+    --texto-no-escuro: #D9E2F3;
+    --linha-escura: #34506B;
+    --amarelo-alerta: #FF8980; 
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Roboto', sans-serif;
+}
+
+body, html {
+    height: 100%;
+    width: 100%;
+}
+
+/* --- FUNDO E LAYOUT PRINCIPAL --- */
+.background-login {
+    height: 100vh;
+    width: 100%;
+    background-image: url('../assets/imgs/carrinho_neon.jpg'); 
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.background-login::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(19, 38, 58, 0.6); 
+    z-index: 1;
+}
+
+/* --- CABEÇALHO --- */
+.header-login {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 50px;
+    width: 100%;
+}
+
+.header-login .logo {
+    display: flex;
+    justify-content: center; 
+    align-items: center;     
+}
+
+.header-login .logo img {
+    height: 150px;
+    width: auto; 
+}
+
+.btn-voltar {
+    text-decoration: none;
+    color: var(--branco);
+    font-weight: 500;
+    border: 2px solid var(--branco);
+    padding: 8px 20px;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+}
+
+.btn-voltar:hover {
+    background-color: var(--amarelo-neon);
+    color: var(--azul-marinho);
+    border-color: var(--amarelo-neon);
+}
+
+/* --- ÁREA DE LOGIN (CARD) --- */
+.login {
+    position: relative;
+    z-index: 2; 
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+.container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.card-login {
+    background-color: var(--fundo-claro);
+    width: 100%;
+    max-width: 420px;
+    padding: 40px;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    text-align: center;
+}
+
+.card-login h2 {
+    color: var(--azul-marinho);
+    margin-bottom: 5px;
+}
+
+.subtitulo {
+    color: var(--linha-escura);
+    font-size: 14px;
+    margin-bottom: 25px;
+}
+
+/* --- FORMULÁRIO --- */
+.campo {
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.titulo_input {
+    font-size: 14px;
+    color: var(--azul-marinho);
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.campo input {
+    width: 100%;
+    padding: 12px 15px;
+    background-color: #ffffff;
+    border: 1px solid var(--linha-escura);
+    border-radius: 5px;
+    font-size: 15px;
+    color: var(--azul-marinho);
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+.campo input:focus {
+    border-color: var(--azul);
+    box-shadow: 0 0 5px rgba(0, 69, 143, 0.3);
+}
+
+.botao {
+    width: 100%;
+    padding: 14px;
+    background-color: var(--azul);
+    color: var(--branco);
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background-color 0.3s;
+}
+
+.botao:hover {
+    background-color: var(--azul-marinho);
+}
+
+/* --- ALERTAS E LOADING --- */
+.alerta_erro {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.card_erro {
+    display: none; 
+    background-color: var(--vinho);
+    color: var(--branco);
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.loading-div {
+    margin-top: 20px;
+}
+
+.loading-div img {
+    width: 40px;
+}
