@@ -4,46 +4,174 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Monitoramento</title>
+    <title>EcomCore - Painel de Monitoramento</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="./imgs/EcomCore.png">
     <link rel="stylesheet" href="dashboard.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
-    <header>
-        <h1>Dashboard de Monitoramento</h1>
-        <div class="acoes">
-            <span id="status">Aguardando dados...</span>
-            <span id="hora">--:--:--</span>
-            <button id="botao" onclick="alternarAtualizacao()">Pausar</button>
+
+    <aside class="sidebar">
+        <div>
+            <div class="brand">
+                <img src="./imgs/EcomCoresemfundo.png" alt="Logo EcomCore" class="brand-logo">
+            </div>
+            <div class="user-profile">
+                <div class="welcome-text">Bem-vindo de volta,</div>
+                <div class="user-name" id="nomeAnalista">Analista</div>
+            </div>
+
+            <ul class="nav-menu">
+                <li class="nav-item active">
+                    📊 <span>Dashboard</span>
+                </li>
+                <li class="nav-item">
+                    🖥️ <span>Servidores</span>
+                </li>
+                <li class="nav-item">
+                    ⚙️ <span>Configurações</span>
+                </li>
+            </ul>
         </div>
-    </header>
 
-    <main>
-        <section class="kpis">
-            <div class="kpi"><p>CPU</p><strong id="kpi-cpu">--%</strong><small id="kpi-cpu-info">--</small></div>
-            <div class="kpi"><p>Memória RAM</p><strong id="kpi-ram">--%</strong><small id="kpi-ram-info">--</small></div>
-            <div class="kpi"><p>Disco</p><strong id="kpi-disco">--%</strong><small id="kpi-disco-info">--</small></div>
-            <div class="kpi"><p>Rede (recebida)</p><strong id="kpi-rede">-- MB/s</strong><small id="kpi-rede-info">--</small></div>
-        </section>
+        <button class="btn-logout" onclick="logout()">
+            🚪 <span>Sair</span>
+        </button>
+    </aside>
 
-        <section class="graficos">
-            <div class="grafico grande">
-                <h2>CPU e RAM (%)</h2>
-                <canvas id="grafico-cpu-ram"></canvas>
+    <main class="main-content">
+        <header class="header">
+            <h2>Painel de Monitoramento Geral</h2>
+            <p>Métricas de hardware atualizadas em tempo real</p>
+        </header>
+
+        <section class="dashboard-grid">
+            <div class="card">
+                <canvas id="chartCpu"></canvas>
             </div>
-            <div class="grafico">
-                <h2>Disco (GB)</h2>
-                <canvas id="grafico-disco"></canvas>
+            <div class="card">
+                <canvas id="chartRam"></canvas>
             </div>
-            <div class="grafico grande">
-                <h2>Rede (MB/s)</h2>
-                <canvas id="grafico-rede"></canvas>
+            <div class="card">
+                <canvas id="chartDisco"></canvas>
+            </div>
+            <div class="card">
+                <canvas id="chartRede"></canvas>
             </div>
         </section>
     </main>
 
-    <script src="dashboard.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const nomeSalvo = sessionStorage.getItem('NOME_USUARIO') || localStorage.getItem('NOME_USUARIO');
+            if (nomeSalvo) {
+                document.getElementById('nomeAnalista').innerText = nomeSalvo;
+            }
+        });
+
+        function logout() {
+            sessionStorage.clear();
+            localStorage.clear();
+            window.history.back();
+        }
+
+    
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = '#334155';
+
+        const commonOptions = (title, max = 100) => ({
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: title,
+                    color: '#f8fafc',
+                    font: { size: 14, weight: '600' }
+                }
+            },
+            scales: { y: { beginAtZero: true, max: max } }
+        });
+
+        const chartCpu = new Chart(document.getElementById('chartCpu'), {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'CPU (%)', borderColor: '#ef4444', backgroundColor: '#ef444422', data: [], fill: true, tension: 0.3 }] },
+            options: commonOptions('Processador (CPU)', 100)
+        });
+
+        const chartRam = new Chart(document.getElementById('chartRam'), {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'RAM (%)', borderColor: '#3b82f6', backgroundColor: '#3b82f622', data: [], fill: true, tension: 0.3 }] },
+            options: commonOptions('Memória RAM', 100)
+        });
+
+        const chartDisco = new Chart(document.getElementById('chartDisco'), {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Disco (%)', borderColor: '#a855f7', backgroundColor: '#a855f722', data: [], fill: true, tension: 0.3 }] },
+            options: commonOptions('Uso de Disco', 100)
+        });
+
+        const chartRede = new Chart(document.getElementById('chartRede'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    { label: 'Upload (KB/s)', borderColor: '#f59e0b', data: [], fill: false, tension: 0.3 },
+                    { label: 'Download (KB/s)', borderColor: '#10b981', data: [], fill: false, tension: 0.3 }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: { display: true, text: 'Tráfego de Rede', color: '#f8fafc', font: { size: 14, weight: '600' } }
+                },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+
+        function adicionarPonto(chart, datasetIndex, horario, valor) {
+            if (datasetIndex === 0) {
+                chart.data.labels.push(horario);
+            }
+            chart.data.datasets[datasetIndex].data.push(valor);
+
+            if (chart.data.labels.length > 10) {
+                if (datasetIndex === 0) chart.data.labels.shift();
+                chart.data.datasets[datasetIndex].data.shift();
+            }
+            chart.update();
+        }
+
+        function obterDadosGrafico() {
+            fetch('/dados')
+                .then(response => response.ok ? response.json() : null)
+                .then(resposta => {
+                    if (!resposta) return;
+
+                    const registro = Array.isArray(resposta) ? resposta[resposta.length - 1] : resposta;
+                    const horario = registro.horario_formatado || new Date().toLocaleTimeString();
+
+                    const cpu = registro.cpu_percent ?? 0;
+                    const ram = registro.memoria_percent ?? 0;
+                    const disco = registro.disco_percent ?? 0;
+
+                    const redeEnv = registro.bytes_enviados ?? 0;
+                    const redeRec = registro.bytes_recebidos ?? 0;
+
+                    adicionarPonto(chartCpu, 0, horario, cpu);
+                    adicionarPonto(chartRam, 0, horario, ram);
+                    adicionarPonto(chartDisco, 0, horario, disco);
+
+                    adicionarPonto(chartRede, 0, horario, redeEnv);
+                    adicionarPonto(chartRede, 1, horario, redeRec);
+                })
+                .catch(error => console.error(`Erro ao carregar dados: ${error.message}`));
+        }
+
+        obterDadosGrafico();
+        setInterval(obterDadosGrafico, 3000);
+    </script>
 </body>
 
 </html>
