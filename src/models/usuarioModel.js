@@ -9,59 +9,35 @@ function autenticar(email, senha) {
     return database.executar(instrucaoSql);
 }
 
-// Coloque os mesmos parâmetros aqui. Vá para a var instrucaoSql
+
 function cadastrar(nome, email, senha, cargo, fk_empresa) {
-    console.log("ACESSEI O USUARIO MODEL \n \n\t\t >> Se aqui der erro de 'Error: connect ECONNREFUSED',\n \t\t >> verifique suas credenciais de acesso ao banco\n \t\t >> e se o servidor de seu BD está rodando corretamente. \n\n function cadastrar():", nome, email, senha, fk_empresa);
-    
     var instrucaoSql = `
-        INSERT INTO usuario (nome, email, senha, cargo, fk_empresa) VALUES ('${nome}', '${email}', '${senha}', '${cargo}', '${fk_empresa}');
+        INSERT INTO usuario (nome, email, senha, cargo, fk_empresa) VALUES (?, ?, ?, ?, ?);
     `;
-    console.log("Executando a instrução SQL: \n" + instrucaoSql);
-    return database.executar(instrucaoSql);
+    return database.executar(instrucaoSql, [nome, email, senha, cargo, fk_empresa]);
 }
 
-function remover(nome, email, cargo,  fk_empresa) {
+function remover(id, fk_empresa) {
     var instrucaoSql = `
-        delete from usuario
-        where id = (
-            select idUsuario
-            from (
-                select id as idUsuario
-                from usuario
-                where nome = '${nome}'
-                and email = '${email}'
-                and fk_empresa = ${fk_empresa}
-                limit 1
-            ) as subconsulta)
-        and fk_empresa = ${fk_empresa};`
-
-        return database.executar(instrucaoSql)
+        DELETE FROM usuario WHERE id = ? AND fk_empresa = ?;
+    `;
+    return database.executar(instrucaoSql, [id, fk_empresa]);
 }
 
-function atualizar(nome, email, nova_senha, cargo, fk_empresa) {
+function atualizar(id, nova_senha, fk_empresa) {
     var instrucaoSql = `
-        update usuario
-        set senha = '${nova_senha}'
-        where id = (
-            select idUsuario
-            from (
-                select id as idUsuario
-                from usuario
-                where nome = '${nome}'
-                and email = '${email}'
-                and cargo = '${cargo}'
-                and fk_empresa = ${fk_empresa}
-                limit 1
-            ) as subconsulta)
-        and fk_empresa = ${fk_empresa};`
-
-        return database.executar(instrucaoSql)
+        UPDATE usuario SET senha = ? WHERE id = ? AND fk_empresa = ?;
+    `;
+    return database.executar(instrucaoSql, [nova_senha, id, fk_empresa]);
 }
 
 function listar(fk_empresa) {
-    var instrucaoSql = `Select nome, email, cargo from usuario where fk_empresa = ${fk_empresa} order by cargo and nome `
-
-    return database.executar(instrucaoSql)
+    var instrucaoSql = `
+        SELECT id, nome, email, cargo FROM usuario
+        WHERE fk_empresa = ?
+        ORDER BY FIELD(cargo, 'RH', 'Gerente', 'Analista'), nome;
+    `;
+    return database.executar(instrucaoSql, [fk_empresa]);
 }
 
 function listarPorNome(fk_empresa, nome) {

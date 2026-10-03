@@ -14,7 +14,7 @@ function autenticar(req, res) {
             .then(
                 function (resultadoAutenticar) {
                     console.log(`\nResultados encontrados: ${resultadoAutenticar.length}`);
-                    console.log(`Resultados: ${JSON.stringify(resultadoAutenticar)}`); // transforma JSON em String
+                    console.log(`Resultados: ${JSON.stringify(resultadoAutenticar)}`); 
 
                     if (resultadoAutenticar.length == 1) {
                         console.log(resultadoAutenticar);
@@ -46,14 +46,13 @@ function autenticar(req, res) {
 }
 
 function cadastrar(req, res) {
-    // Crie uma variável que vá recuperar os valores do arquivo cadastro.html
     var nome = req.body.nomeServer;
     var email = req.body.emailServer;
     var senha = req.body.senhaServer;
     var cargo = req.body.cargoServer;
     var fk_empresa = req.body.fk_empresaServer;
 
-    // Faça as validações dos valores
+    
     if (nome == undefined) {
         res.status(400).send("Seu nome está undefined!");
     } else if (email == undefined) {
@@ -66,7 +65,7 @@ function cadastrar(req, res) {
         res.status(400).send("Seu id está undefined!");
     } else {
 
-        // Passe os valores como parâmetro e vá para o arquivo usuarioModel.js
+        
         usuarioModel.cadastrar(nome, email, senha, cargo, fk_empresa)
             .then(
                 function (resultado) {
@@ -79,40 +78,41 @@ function cadastrar(req, res) {
                         "\nHouve um erro ao realizar o cadastro! Erro: ",
                         erro.sqlMessage
                     );
-                    res.status(500).json(erro.sqlMessage);
+
+                    // email é UNIQUE no banco: avisa de forma clara que já existe
+                    if (erro.code == "ER_DUP_ENTRY") {
+                        res.status(409).send("Já existe um usuário cadastrado com este e-mail.");
+                    } else {
+                        res.status(500).json(erro.sqlMessage);
+                    }
                 }
             );
     }
 }
 
-// Inicio function Atualizar
 function atualizar(req, res) {
-    // Crie uma variável que vá recuperar os valores do arquivo cadastro.html
-    var nome = req.body.nomeServer;
-    var email = req.body.emailServer;
+    var id = req.body.idServer;
     var nova_senha = req.body.senhaServer;
-    var cargo = req.body.cargoServer;
     var fk_empresa = req.body.fk_empresaServer;
 
-
-    // Faça as validações dos valores
-    if (nome == undefined) {
-        res.status(400).send("Seu nome está undefined!");
-    } else if (email == undefined) {
-        res.status(400).send("Seu email está undefined!");
+    if (id == undefined) {
+        res.status(400).send("O id do usuário está undefined!");
     } else if (nova_senha == undefined) {
         res.status(400).send("Sua senha está undefined!");
-    } else if (cargo == undefined) {
-        res.status(400).send("Seu cargo está undefined!");
+    } else if (String(nova_senha).length < 8) {
+        res.status(400).send("A senha precisa ter pelo menos 8 caracteres.");
     } else if (fk_empresa == undefined) {
-        res.status(400).send("Seu id está undefined!");
+        res.status(400).send("O id da empresa está undefined!");
     } else {
 
-        // Passe os valores como parâmetro e vá para o arquivo usuarioModel.js
-        usuarioModel.atualizar(nome, email, nova_senha, cargo, fk_empresa)
+        usuarioModel.atualizar(id, nova_senha, fk_empresa)
             .then(
                 function (resultado) {
-                    res.json(resultado);
+                    if (resultado.affectedRows == 0) {
+                        res.status(404).send("Usuário não encontrado.");
+                    } else {
+                        res.json(resultado);
+                    }
                 }
             ).catch(
                 function (erro) {
@@ -128,31 +128,24 @@ function atualizar(req, res) {
 }
 
 
-// Inicio function Remover
 function remover(req, res) {
-    // Crie uma variável que vá recuperar os valores do arquivo cadastro.html
-    var nome = req.body.nomeServer;
-    var email = req.body.emailServer;
-    var cargo = req.body.cargoServer;
+    var id = req.body.idServer;
     var fk_empresa = req.body.fk_empresaServer;
 
-
-    // Faça as validações dos valores
-    if (nome == undefined) {
-        res.status(400).send("Seu nome está undefined!");
-    } else if (email == undefined) {
-        res.status(400).send("Seu email está undefined!");
-    } else if (cargo == undefined) {
-        res.status(400).send("Seu cargo está undefined!");
+    if (id == undefined) {
+        res.status(400).send("O id do usuário está undefined!");
     } else if (fk_empresa == undefined) {
-        res.status(400).send("Seu id está undefined!");
+        res.status(400).send("O id da empresa está undefined!");
     } else {
 
-        // Passe os valores como parâmetro e vá para o arquivo usuarioModel.js
-        usuarioModel.remover(nome, email, cargo, fk_empresa)
+        usuarioModel.remover(id, fk_empresa)
             .then(
                 function (resultado) {
-                    res.json(resultado);
+                    if (resultado.affectedRows == 0) {
+                        res.status(404).send("Usuário não encontrado.");
+                    } else {
+                        res.json(resultado);
+                    }
                 }
             ).catch(
                 function (erro) {
@@ -167,11 +160,21 @@ function remover(req, res) {
     }
 }
 
-// Inicio function Listar
+
 function listar(req, res) {
-  usuarioModel.listar().then((resultado) => {
-    res.status(200).json(resultado);
-  });
+    var fk_empresa = req.body.fk_empresaServer;
+
+    if (fk_empresa == undefined) {
+        res.status(400).send("O id da empresa está undefined!");
+    } else {
+        usuarioModel.listar(fk_empresa)
+            .then(function (resultado) {
+                res.status(200).json(resultado);
+            }).catch(function (erro) {
+                console.log(erro);
+                res.status(500).json(erro.sqlMessage);
+            });
+    }
 }
 
 module.exports = {
