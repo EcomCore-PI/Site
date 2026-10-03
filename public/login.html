@@ -10,46 +10,38 @@
     <script src="./js/sessao.js"></script>
 
     <link rel="icon" href="./assets/imgs/EcomCore.png">
+    <link rel="stylesheet" href="./css/cabecalho.css">
     <link rel="stylesheet" href="./css/login.css">
-    <link rel="preconnect" href="https://fonts.gstatic.com">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
-    <!-- Fundo cobrindo a tela toda -->
     <div class="background-login">
-        
-        <!-- Cabeçalho sobreposto ao fundo -->
-       <header class="navbar">
-            <div class="logo">
-                <img src="./assets/imgs/EcomCoresemfundo.png" alt="Logo EcomCore">
-            </div>
-            
-            <nav class="nav-links">
-                <a href="index.html">Home</a>
-                <a href="#sobre">Sobre nós</a>
-                <a href="#servicos">Serviços</a>
-                <a href="#passo">Passo a passo</a>
-                <a href="#valores">Valores</a>
-                <a href="#contato">Contato</a>
-            </nav>
 
-            <div class="nav-action">
-                <a class="btn-voltar-nav" href="index.html">Voltar</a>
+        <header class="cabecalho">
+            <div class="cabecalho-conteudo">
+                <a class="logo-cabecalho" href="index.html">
+                    <img src="./assets/imgs/EcomCoresemfundo.png" alt="Logo EcomCore">
+                </a>
+                <nav>
+                    <ul class="menu">
+                        <li><a class="menu-link" href="index.html">Home</a></li>
+                        <li><a class="menu-link" href="index.html#entre-contato">Contato</a></li>
+                    </ul>
+                </nav>
+                <a class="botao botao-claro botao-login" href="index.html">Voltar</a>
             </div>
         </header>
 
         <div class="login">
-            
             <div class="alerta_erro">
                 <div class="card_erro" id="cardErro">
                     <span id="mensagem_erro"></span>
                 </div>
             </div>
 
-            <div class="container">
+            <div class="login-container">
                 <div class="card card-login">
-                    <h2>Bem-vindo de volta!</h2>
+                    <h2>Bem-vindo !</h2>
                     <p class="subtitulo">Faça login para acessar o EcomCore.</p>
 
                     <div class="formulario">
@@ -61,15 +53,13 @@
                             <h4 class="titulo_input">Senha</h4>
                             <input id="senha_input" type="password" placeholder="******">
                         </div>
-                        <button class="botao" onclick="entrar()">Entrar</button>
+                        <button class="botao-entrar" onclick="entrar()">Entrar</button>
                     </div>
 
-                    <!-- Telas de carregamento e erro -->
                     <div id="div_aguardar" class="loading-div" style="display: none;">
                         <img src="./assets/circle-loading.gif" id="loading-gif" alt="Carregando">
                     </div>
                     <div id="div_erros_login"></div>
-
                 </div>
             </div>
         </div>
@@ -78,7 +68,6 @@
 </html>
 
 <script>
-
 
     function entrar() {
         aguardar();
