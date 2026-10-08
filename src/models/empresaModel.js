@@ -25,4 +25,4 @@ function cadastrar(cnpj, razao_social, email_contato) {
   return database.executar(instrucaoSql);
 }
 
-module.exports = { buscarPorCnpj, buscarPorId, cadastrar, listar, alterar};
+module.exports = { buscarPorCnpj, buscarPorId, cadastrar, listar};

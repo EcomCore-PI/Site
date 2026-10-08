@@ -47,19 +47,50 @@
             <p>Métricas de hardware atualizadas em tempo real</p>
         </header>
 
-        <section class="dashboard-grid">
-            <div class="card">
-                <canvas id="chartCpu"></canvas>
-            </div>
-            <div class="card">
-                <canvas id="chartRam"></canvas>
-            </div>
-            <div class="card">
-                <canvas id="chartDisco"></canvas>
-            </div>
-            <div class="card">
-                <canvas id="chartRede"></canvas>
-            </div>
+        <section class="kpi-grid" aria-label="Indicadores de hardware">
+            <article class="kpi-card">
+                <p class="kpi-label">Processador</p>
+                <p class="kpi-value" id="kpi-cpu">—</p>
+                <p class="kpi-description">Utilização da CPU</p>
+                <p class="kpi-detail" id="kpi-cpu-info">Aguardando dados</p>
+            </article>
+            <article class="kpi-card">
+                <p class="kpi-label">Memória RAM</p>
+                <p class="kpi-value" id="kpi-ram">—</p>
+                <p class="kpi-description">Memória em uso</p>
+                <p class="kpi-detail" id="kpi-ram-info">Aguardando dados</p>
+            </article>
+            <article class="kpi-card">
+                <p class="kpi-label">Disco</p>
+                <p class="kpi-value" id="kpi-disco">—</p>
+                <p class="kpi-description">Espaço ocupado</p>
+                <p class="kpi-detail" id="kpi-disco-info">Aguardando dados</p>
+            </article>
+            <article class="kpi-card">
+                <p class="kpi-label">Rede</p>
+                <p class="kpi-value" id="kpi-rede">—</p>
+                <p class="kpi-description">Download atual</p>
+                <p class="kpi-detail" id="kpi-rede-info">Aguardando dados</p>
+            </article>
+        </section>
+        <p class="metrics-status" id="metrics-status" role="status">Aguardando primeira leitura…</p>
+        <section class="dashboard-grid" aria-label="Gráficos de hardware">
+            <article class="card chart-card">
+                <header class="chart-heading"><h3>Uso de CPU</h3><p>Carga do processador ao longo do tempo</p></header>
+                <div class="chart-container"><canvas id="chartCpu" role="img" aria-label="Carga do processador ao longo do tempo">Carga do processador ao longo do tempo</canvas></div>
+            </article>
+            <article class="card chart-card">
+                <header class="chart-heading"><h3>Memória RAM</h3><p>Percentual de memória utilizada</p></header>
+                <div class="chart-container"><canvas id="chartRam" role="img" aria-label="Percentual de memória utilizada">Percentual de memória utilizada</canvas></div>
+            </article>
+            <article class="card chart-card">
+                <header class="chart-heading"><h3>Uso de disco</h3><p>Ocupação do armazenamento</p></header>
+                <div class="chart-container"><canvas id="chartDisco" role="img" aria-label="Ocupação do armazenamento">Ocupação do armazenamento</canvas></div>
+            </article>
+            <article class="card chart-card">
+                <header class="chart-heading"><h3>Tráfego de rede</h3><p>Velocidade de envio e recebimento</p></header>
+                <div class="chart-container"><canvas id="chartRede" role="img" aria-label="Velocidade de envio e recebimento">Velocidade de envio e recebimento</canvas></div>
+            </article>
         </section>
     </main>
 
@@ -78,100 +109,8 @@
         }
 
     
-        Chart.defaults.color = '#94a3b8';
-        Chart.defaults.borderColor = '#334155';
-
-        const commonOptions = (title, max = 100) => ({
-            responsive: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: title,
-                    color: '#f8fafc',
-                    font: { size: 14, weight: '600' }
-                }
-            },
-            scales: { y: { beginAtZero: true, max: max } }
-        });
-
-        const chartCpu = new Chart(document.getElementById('chartCpu'), {
-            type: 'line',
-            data: { labels: [], datasets: [{ label: 'CPU (%)', borderColor: '#ef4444', backgroundColor: '#ef444422', data: [], fill: true, tension: 0.3 }] },
-            options: commonOptions('Processador (CPU)', 100)
-        });
-
-        const chartRam = new Chart(document.getElementById('chartRam'), {
-            type: 'line',
-            data: { labels: [], datasets: [{ label: 'RAM (%)', borderColor: '#3b82f6', backgroundColor: '#3b82f622', data: [], fill: true, tension: 0.3 }] },
-            options: commonOptions('Memória RAM', 100)
-        });
-
-        const chartDisco = new Chart(document.getElementById('chartDisco'), {
-            type: 'line',
-            data: { labels: [], datasets: [{ label: 'Disco (%)', borderColor: '#a855f7', backgroundColor: '#a855f722', data: [], fill: true, tension: 0.3 }] },
-            options: commonOptions('Uso de Disco', 100)
-        });
-
-        const chartRede = new Chart(document.getElementById('chartRede'), {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [
-                    { label: 'Upload (KB/s)', borderColor: '#f59e0b', data: [], fill: false, tension: 0.3 },
-                    { label: 'Download (KB/s)', borderColor: '#10b981', data: [], fill: false, tension: 0.3 }
-                ]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    title: { display: true, text: 'Tráfego de Rede', color: '#f8fafc', font: { size: 14, weight: '600' } }
-                },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-
-        function adicionarPonto(chart, datasetIndex, horario, valor) {
-            if (datasetIndex === 0) {
-                chart.data.labels.push(horario);
-            }
-            chart.data.datasets[datasetIndex].data.push(valor);
-
-            if (chart.data.labels.length > 10) {
-                if (datasetIndex === 0) chart.data.labels.shift();
-                chart.data.datasets[datasetIndex].data.shift();
-            }
-            chart.update();
-        }
-
-        function obterDadosGrafico() {
-            fetch('/dados')
-                .then(response => response.ok ? response.json() : null)
-                .then(resposta => {
-                    if (!resposta) return;
-
-                    const registro = Array.isArray(resposta) ? resposta[resposta.length - 1] : resposta;
-                    const horario = registro.horario_formatado || new Date().toLocaleTimeString();
-
-                    const cpu = registro.cpu_percent ?? 0;
-                    const ram = registro.memoria_percent ?? 0;
-                    const disco = registro.disco_percent ?? 0;
-
-                    const redeEnv = registro.bytes_enviados ?? 0;
-                    const redeRec = registro.bytes_recebidos ?? 0;
-
-                    adicionarPonto(chartCpu, 0, horario, cpu);
-                    adicionarPonto(chartRam, 0, horario, ram);
-                    adicionarPonto(chartDisco, 0, horario, disco);
-
-                    adicionarPonto(chartRede, 0, horario, redeEnv);
-                    adicionarPonto(chartRede, 1, horario, redeRec);
-                })
-                .catch(error => console.error(`Erro ao carregar dados: ${error.message}`));
-        }
-
-        obterDadosGrafico();
-        setInterval(obterDadosGrafico, 3000);
     </script>
+    <script src="monitoramento-graficos.js"></script>
 </body>
 
 </html>
