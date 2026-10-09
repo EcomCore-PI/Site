@@ -1,4 +1,3 @@
-// O banco determina os alertas e seus níveis; a dashboard apenas os exibe.
 (() => {
     const corpo = document.getElementById('alerts-body');
     const status = document.getElementById('alerts-status');
