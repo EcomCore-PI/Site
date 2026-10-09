@@ -81,7 +81,12 @@ CREATE TABLE componente (
 
 CREATE TABLE tipo_componente (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    nome VARCHAR(100) NOT NULL UNIQUE
+    fk_componente INT NOT NULL,
+    nome VARCHAR(100) NOT NULL UNIQUE,
+
+    CONSTRAINT fk_tipo_componente
+        FOREIGN KEY (fk_componente)
+        REFERENCES componente(id)
 );
 
 
