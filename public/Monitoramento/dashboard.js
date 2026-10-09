@@ -2,7 +2,6 @@ const MAX_PONTOS = 30;      // quantos pontos aparecem nos gráficos de linha
 const INTERVALO = 2000;     // ms entre cada atualização
 
 let atualizacaoAtiva = true;
-let anterior = null;        // última leitura de rede (para calcular MB/s)
 
 Chart.defaults.color = '#8f98aa';
 Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.06)';
@@ -29,11 +28,6 @@ const graficoCpuRam = criarLinha('grafico-cpu-ram', [
     dataset('CPU (%)', '#005AFE'),
     dataset('RAM (%)', '#00E090')
 ], 100);
-
-const graficoRede = criarLinha('grafico-rede', [
-    dataset('Recebida (MB/s)', '#005AFE'),
-    dataset('Enviada (MB/s)', '#00E090')
-]);
 
 const graficoDisco = new Chart(document.getElementById('grafico-disco'), {
     type: 'doughnut',
@@ -68,17 +62,6 @@ async function atualizarDados() {
         if (!resposta.ok) throw new Error('Erro HTTP: ' + resposta.status);
         const d = await resposta.json();
 
-        // bytes_recebidos / bytes_enviados são acumulados (MB desde o boot),
-        // então a velocidade é a diferença entre duas leituras dividida pelo tempo
-        const agora = Date.now();
-        let recebidoMBs = 0, enviadoMBs = 0;
-        if (anterior) {
-            const segundos = (agora - anterior.t) / 1000;
-            recebidoMBs = Math.max(0, (d.bytes_recebidos - anterior.recv) / segundos);
-            enviadoMBs = Math.max(0, (d.bytes_enviados - anterior.sent) / segundos);
-        }
-        anterior = { t: agora, recv: d.bytes_recebidos, sent: d.bytes_enviados };
-
         // cards
         texto('kpi-cpu', d.cpu_percent + '%');
         texto('kpi-cpu-info', d.cpu_count + ' núcleos • ' + d.cpu_freq + ' MHz');
@@ -86,12 +69,9 @@ async function atualizarDados() {
         texto('kpi-ram-info', d.memoria_used + ' / ' + d.memoria_total + ' GB');
         texto('kpi-disco', d.disco_percent + '%');
         texto('kpi-disco-info', d.disco_free + ' GB livres de ' + d.disco_total + ' GB');
-        texto('kpi-rede', recebidoMBs.toFixed(2) + ' MB/s');
-        texto('kpi-rede-info', 'Enviada: ' + enviadoMBs.toFixed(2) + ' MB/s');
 
         // gráficos
         adicionarPonto(graficoCpuRam, d.horario_formatado, [d.cpu_percent, d.memoria_percent]);
-        adicionarPonto(graficoRede, d.horario_formatado, [recebidoMBs.toFixed(2), enviadoMBs.toFixed(2)]);
 
         graficoDisco.data.datasets[0].data = [d.disco_used, d.disco_free];
         graficoDisco.update();
@@ -111,7 +91,6 @@ function alternarAtualizacao() {
     document.getElementById('botao').textContent = atualizacaoAtiva ? 'Pausar atualização' : 'Retomar atualização';
 
     if (atualizacaoAtiva) {
-        anterior = null;   // evita um pico de rede após a pausa
         atualizarDados();
     } else {
         texto('status', 'Atualização pausada');

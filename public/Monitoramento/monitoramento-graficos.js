@@ -89,7 +89,6 @@
         return;
     }
     const MAX_PONTOS = 30;
-    let anterior = null;
     let timer = null;
     let requisicao = null;
     const INTERVALO = 3000;
@@ -140,6 +139,7 @@
     const cpu = criarGrafico('chartCpu', [serie('CPU', '#60a5fa', true)], '%', 100);
     const ram = criarGrafico('chartRam', [serie('RAM', '#60a5fa', true)], '%', 100);
     const disco = criarGrafico('chartDisco', [serie('Disco', '#60a5fa', true)], '%', 100);
+    // Reservado para a futura integração; /dados não alimenta este gráfico.
     const rede = criarGrafico('chartRede', [serie('Download', '#60a5fa'), serie('Upload', '#5eead4', false, true)], 'MiB/s');
     function adicionarPonto(grafico, horario, valores) {
         grafico.data.labels.push(horario);
@@ -166,33 +166,19 @@
             const d = Array.isArray(dados) ? dados[dados.length - 1] : dados;
             if (!d || typeof d !== 'object') throw new Error('Sem leituras');
             const horario = d.horario_formatado || new Date().toLocaleTimeString('pt-BR');
-            const agora = performance.now();
-            const recebidos = numero(d.bytes_recebidos), enviados = numero(d.bytes_enviados);
-            let download = null, upload = null;
-            // O servidor fornece contadores acumulados em MiB (bytes / 1024²).
-            if (anterior && agora > anterior.tempo) {
-                const segundos = (agora - anterior.tempo) / 1000;
-                if (recebidos !== null && anterior.recebidos !== null && recebidos >= anterior.recebidos) download = (recebidos - anterior.recebidos) / segundos;
-                if (enviados !== null && anterior.enviados !== null && enviados >= anterior.enviados) upload = (enviados - anterior.enviados) / segundos;
-            }
-            anterior = { tempo: agora, recebidos, enviados };
             texto('kpi-cpu', medida(d.cpu_percent, '%'));
             texto('kpi-cpu-info', `${medida(d.cpu_count, 'núcleos')} · ${medida(d.cpu_freq, 'MHz')}`);
             texto('kpi-ram', medida(d.memoria_percent, '%'));
             texto('kpi-ram-info', `${medida(d.memoria_used, 'GiB')} usados de ${medida(d.memoria_total, 'GiB')}`);
             texto('kpi-disco', medida(d.disco_percent, '%'));
             texto('kpi-disco-info', `${medida(d.disco_free, 'GiB')} livres de ${medida(d.disco_total, 'GiB')}`);
-            texto('kpi-rede', medida(download, 'MiB/s'));
-            texto('kpi-rede-info', download === null ? 'Calculando velocidade entre leituras…' : `Upload: ${medida(upload, 'MiB/s')}`);
             adicionarPonto(cpu, horario, [numero(d.cpu_percent)]);
             adicionarPonto(ram, horario, [numero(d.memoria_percent)]);
             adicionarPonto(disco, horario, [numero(d.disco_percent)]);
-            adicionarPonto(rede, horario, [download, upload]);
             status.textContent = `Última leitura: ${horario} · Histórico de até ${MAX_PONTOS} leituras`;
             status.dataset.error = 'false';
         } catch (erro) {
             if (document.hidden) return;
-            anterior = null;
             status.textContent = 'Sem atualização: verifique se o servidor de monitoramento está rodando. Os valores exibidos são da última leitura recebida.';
             status.dataset.error = 'true';
         } finally {
@@ -203,7 +189,6 @@
     }
     document.addEventListener('visibilitychange', () => {
         clearTimeout(timer);
-        anterior = null;
         if (document.hidden) {
             requisicao?.abort();
             [cpu, ram, disco, rede].forEach(grafico => grafico.stop());
