@@ -1,3 +1,87 @@
+// O banco determina os alertas e seus níveis; a dashboard apenas os exibe.
+(() => {
+    const corpo = document.getElementById('alerts-body');
+    const status = document.getElementById('alerts-status');
+    const contador = document.getElementById('alerts-count');
+    const formato = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
+    let timer = null;
+    let requisicao = null;
+    let recebeuDados = false;
+
+    function mostrarVazio(mensagem) {
+        const linha = document.createElement('tr');
+        const celula = document.createElement('td');
+        celula.colSpan = 3;
+        celula.className = 'alerts-empty';
+        celula.textContent = mensagem;
+        linha.append(celula);
+        corpo.replaceChildren(linha);
+    }
+
+    function renderizar(dados) {
+        corpo.replaceChildren();
+        for (const alerta of dados.alertas) {
+            const linha = document.createElement('tr');
+            const recurso = document.createElement('td');
+            recurso.textContent = alerta.recurso;
+            const valor = document.createElement('td');
+            valor.textContent = `${formato.format(alerta.valor_medido)} %`;
+            const nivel = document.createElement('td');
+            const selo = document.createElement('span');
+            selo.className = 'alert-level alert-level--' + (alerta.nivel === 'Crítico' ? 'critical' : 'warning');
+            selo.textContent = alerta.nivel;
+            nivel.append(selo);
+            linha.append(recurso, valor, nivel);
+            corpo.append(linha);
+        }
+        if (!dados.alertas.length) {
+            mostrarVazio(dados.incompleto ? 'Leitura incompleta. Aguardando dados de todos os recursos.'
+                : dados.desatualizado ? 'Sem leituras recentes. Aguardando atualização do monitoramento.'
+                : 'Nenhum alerta ativo. Uso abaixo de 80%.');
+        }
+        contador.textContent = String(dados.alertas.length);
+        status.textContent = dados.horario ? `Última leitura no banco: ${dados.horario}` : 'Aguardando primeira leitura no banco…';
+        if (dados.incompleto) status.textContent += ' · Dados incompletos';
+        else if (dados.desatualizado) status.textContent += ' · Sem atualização da coleta';
+        recebeuDados = true;
+    }
+
+    async function atualizarAlertasDoBanco() {
+        clearTimeout(timer);
+        if (document.hidden || requisicao) return;
+        const controller = new AbortController();
+        requisicao = controller;
+        const limite = setTimeout(() => controller.abort(), 8000);
+        try {
+            const resposta = await fetch('/alertas', { cache: 'no-store', signal: controller.signal });
+            if (!resposta.ok) throw new Error('Consulta de alertas indisponível');
+            const dados = await resposta.json();
+            if (document.hidden) return;
+            if (!Array.isArray(dados.alertas)) throw new Error('Resposta inválida');
+            renderizar(dados);
+        } catch (erro) {
+            if (document.hidden) return;
+            status.textContent = recebeuDados
+                ? 'Sem atualização. Exibindo a última consulta de alertas ao banco.'
+                : 'Não foi possível consultar os alertas no banco.';
+            if (!recebeuDados) {
+                contador.textContent = '—';
+                mostrarVazio('Alertas indisponíveis. Aguardando conexão com o banco.');
+            }
+        } finally {
+            clearTimeout(limite);
+            requisicao = null;
+            if (!document.hidden) timer = setTimeout(atualizarAlertasDoBanco, 3000);
+        }
+    }
+    document.addEventListener('visibilitychange', () => {
+        clearTimeout(timer);
+        if (document.hidden) requisicao?.abort();
+        else atualizarAlertasDoBanco();
+    });
+    atualizarAlertasDoBanco();
+})();
+
 (() => {
     const status = document.getElementById('metrics-status');
     if (typeof Chart === 'undefined') {
@@ -43,13 +127,13 @@
                 color: '#a8b8cd', font: { family: 'Inter, sans-serif', size: 16 },
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
-                    legend: { display: datasets.length > 1, position: 'bottom', labels: { font: { size: 16 }, color: '#cbd5e1', boxWidth: 18, boxHeight: 2, padding: 16 } },
+                    legend: { display: datasets.length > 1, position: 'bottom', labels: { font: { size: 12 }, color: '#cbd5e1', boxWidth: 18, boxHeight: 2, padding: 10 } },
                     tooltip: { titleFont: { size: 16 }, bodyFont: { size: 16 }, backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#cbd5e1', borderColor: '#40526a', borderWidth: 1, padding: 12,
                         callbacks: { label: item => `${item.dataset.label}: ${medida(item.parsed.y, unidade)}` } }
                 },
                 scales: {
-                    x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 15 }, color: '#a8b8cd', maxTicksLimit: 4, maxRotation: 0 }, title: { font: { size: 15 }, display: true, text: 'Horário', color: '#a8b8cd' } },
-                    y: { beginAtZero: true, ...(max === undefined ? {} : { max }), border: { display: false }, grid: { color: '#ffffff0b' }, ticks: { font: { size: 15 }, color: '#a8b8cd', maxTicksLimit: 5 }, title: { font: { size: 15 }, display: true, text: unidade, color: '#a8b8cd' } }
+                    x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 12 }, color: '#a8b8cd', maxTicksLimit: 4, maxRotation: 0 }, title: { font: { size: 12 }, display: true, text: 'Horário', color: '#a8b8cd' } },
+                    y: { beginAtZero: true, ...(max === undefined ? {} : { max }), border: { display: false }, grid: { color: '#ffffff0b' }, ticks: { font: { size: 12 }, color: '#a8b8cd', maxTicksLimit: 5 }, title: { font: { size: 12 }, display: true, text: unidade, color: '#a8b8cd' } }
                 }
             }
         });

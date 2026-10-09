@@ -27,12 +27,6 @@
                 <li class="nav-item active">
                     📊 <span>Dashboard</span>
                 </li>
-                <li class="nav-item">
-                    🖥️ <span>Servidores</span>
-                </li>
-                <li class="nav-item">
-                    ⚙️ <span>Configurações</span>
-                </li>
             </ul>
         </div>
 
@@ -74,6 +68,7 @@
             </article>
         </section>
         <p class="metrics-status" id="metrics-status" role="status">Aguardando primeira leitura…</p>
+        <div class="monitoring-layout">
         <section class="dashboard-grid" aria-label="Gráficos de hardware">
             <article class="card chart-card">
                 <header class="chart-heading"><h3>Uso de CPU</h3><p>Carga do processador ao longo do tempo</p></header>
@@ -92,6 +87,21 @@
                 <div class="chart-container"><canvas id="chartRede" role="img" aria-label="Velocidade de envio e recebimento">Velocidade de envio e recebimento</canvas></div>
             </article>
         </section>
+        <aside class="alerts-panel" aria-labelledby="alerts-title">
+            <header class="alerts-heading">
+                <div><h3 id="alerts-title">Alertas ativos</h3><p>CPU, memória e armazenamento</p></div>
+                <span class="alerts-count" id="alerts-count" aria-label="Quantidade de alertas">—</span>
+            </header>
+            <p class="alerts-status" id="alerts-status" role="status">Aguardando primeira leitura…</p>
+            <div class="alerts-table-wrapper" tabindex="0" role="region" aria-label="Tabela de alertas ativos">
+                <table class="alerts-table">
+                    <thead><tr><th scope="col">Recurso</th><th scope="col">Uso</th><th scope="col">Nível</th></tr></thead>
+                    <tbody id="alerts-body"><tr><td colspan="3" class="alerts-empty">Aguardando dados do monitoramento.</td></tr></tbody>
+                </table>
+            </div>
+            <p class="alerts-note">Atenção ≥ 80% · Crítico ≥ 90%<br>Atualizado a cada leitura recebida.</p>
+        </aside>
+        </div>
     </main>
 
     <script>

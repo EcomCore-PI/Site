@@ -100,6 +100,32 @@ def coletar_dados():
 # ---------------------------------------------------------------
 # Gravação no banco
 # ---------------------------------------------------------------
+def atualizar_alertas(cursor, dados):
+    # Mesmos limites exibidos na dashboard: atenção >= 80%, crítico >= 90%.
+    # Executado na transação da captura, mesmo com a dashboard fechada.
+    for recurso, campo in (("CPU", "cpu_percent"), ("RAM", "memoria_percent"),
+                           ("Disco", "disco_percent")):
+        valor = dados.get(campo)
+        if not isinstance(valor, (int, float)) or not 0 <= valor <= 100:
+            continue
+        if valor >= 80:
+            limite, nivel = (90, "Crítico") if valor >= 90 else (80, "Atenção")
+            cursor.execute(
+                "INSERT INTO alerta (fk_servidor, componente, valor_medido, limite, nivel) "
+                "VALUES (%s, %s, %s, %s, %s) "
+                "ON DUPLICATE KEY UPDATE valor_medido = %s, limite = %s, nivel = %s, "
+                "ultima_atualizacao = CURRENT_TIMESTAMP",
+                (ID_SERVIDOR, recurso, valor, limite, nivel, valor, limite, nivel),
+            )
+        else:
+            cursor.execute(
+                "UPDATE alerta SET data_fim = CURRENT_TIMESTAMP, "
+                "ultima_atualizacao = CURRENT_TIMESTAMP "
+                "WHERE fk_servidor = %s AND componente = %s AND ativo = 1",
+                (ID_SERVIDOR, recurso),
+            )
+
+
 def gravar_capturas(dados):
     # (nome, valor, unidade_de_medida) -> mesmas colunas da tabela `captura`
     # Os nomes 'CPU' e 'Memoria RAM' seguem os exemplos do banco-ecommerce.sql
@@ -112,6 +138,7 @@ def gravar_capturas(dados):
     ]
 
     conexao = mysql.connector.connect(**CONFIG_BANCO)
+    cursor = None
     try:
         cursor = conexao.cursor()
         cursor.executemany(
@@ -119,9 +146,14 @@ def gravar_capturas(dados):
             "VALUES (%s, %s, %s, %s)",
             [(nome, valor, unidade, ID_SERVIDOR) for nome, valor, unidade in capturas],
         )
+        atualizar_alertas(cursor, dados)
         conexao.commit()
-        cursor.close()
+    except Exception:
+        conexao.rollback()
+        raise
     finally:
+        if cursor is not None:
+            cursor.close()
         conexao.close()
 
 
@@ -138,12 +170,66 @@ def loop_gravacao():
         t.sleep(INTERVALO_GRAVACAO)
 
 
+def buscar_alertas():
+    # Usa o mesmo servidor das capturas; não aceita IDs fornecidos pelo navegador.
+    conexao = mysql.connector.connect(**CONFIG_BANCO)
+    try:
+        conexao.start_transaction(readonly=True)
+        cursor = conexao.cursor(dictionary=True)
+        try:
+            cursor.execute(
+                "SELECT nome, MAX(horario) AS horario, "
+                "MAX(horario) >= NOW() - INTERVAL 30 SECOND AS recente "
+                "FROM captura WHERE fk_servidor = %s "
+                "AND nome IN ('CPU', 'Memoria RAM', 'Disco') "
+                "AND unidade_de_medida = '%' AND valor BETWEEN 0 AND 100 "
+                "GROUP BY nome", (ID_SERVIDOR,),
+            )
+            leituras = cursor.fetchall()
+            cursor.execute(
+                "SELECT id, componente AS recurso, valor_medido, limite, nivel "
+                "FROM alerta WHERE fk_servidor = %s AND ativo = 1 "
+                "ORDER BY valor_medido DESC, id ASC", (ID_SERVIDOR,),
+            )
+            alertas = cursor.fetchall()
+            for alerta in alertas:
+                alerta["valor_medido"] = float(alerta["valor_medido"])
+            horarios = [leitura["horario"] for leitura in leituras if leitura["horario"]]
+            return {
+                "alertas": alertas,
+                "horario": max(horarios).strftime("%H:%M:%S") if horarios else None,
+                "incompleto": len(horarios) < 3,
+                "desatualizado": len(horarios) < 3 or any(not leitura["recente"] for leitura in leituras),
+            }
+        finally:
+            cursor.close()
+    finally:
+        conexao.close()
+
+
 # ---------------------------------------------------------------
 # Servidor HTTP (mantém o /dados que o script.js usa)
 # ---------------------------------------------------------------
 class Servidor(SimpleHTTPRequestHandler):
 
     def do_GET(self):
+
+        if self.path == "/alertas":
+            try:
+                dados = buscar_alertas()
+                codigo = 200
+            except mysql.connector.Error as erro:
+                print(f"[ERRO] Falha na consulta de alertas (código {erro.errno})")
+                dados = {"erro": "Não foi possível consultar os alertas no banco."}
+                codigo = 503
+            resposta = json.dumps(dados, ensure_ascii=False).encode("utf-8")
+            self.send_response(codigo)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(resposta)))
+            self.end_headers()
+            self.wfile.write(resposta)
+            return
 
         if self.path == "/dados":
 

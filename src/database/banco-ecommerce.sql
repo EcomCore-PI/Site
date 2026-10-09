@@ -40,6 +40,21 @@ create table captura(
     constraint fk_servidor_captura foreign key (fk_servidor) references servidor(id)
 );
 
+create table alerta (
+    id int primary key auto_increment,
+    fk_servidor int not null,
+    componente not null,
+    valor_medido float not null,
+    limite tinyint not null,
+    nivel ENUM('Atenção', 'Crítico') not null,
+    data_inicio datetime not null default current_timestamp,
+    ultima_atualizacao datetime not null default current_timestamp,
+    data_fim datetime null,
+    ativo tinyint generated always as (if(data_fim is null, 1, null)) stored,
+    constraint fk_alerta_servidor foreign key (fk_servidor) references servidor(id),
+    unique key uq_alerta_ativo (fk_servidor, recurso, ativo)
+);
+
 CREATE OR REPLACE VIEW vwCapturas AS
 SELECT 
     c.id AS captura_id,
@@ -93,18 +108,10 @@ INSERT INTO usuario (nome, email, senha, cargo, fk_empresa) VALUES
 INSERT INTO usuario (nome, email, senha, cargo, enviou_email, fk_empresa) VALUES 
 ('Math', 'math@gmail.com', 'Senha123', 'RH', default, 1);
 
--- 4. BÔNUS: Inserindo servidores vinculados à empresa 1
+
 INSERT INTO servidor (nome, fk_empresa) VALUES 
 ('Servidor SP - Banco de Dados', 1),
 ('Servidor RJ - Aplicação', 1);
-
--- 5. BÔNUS: Inserindo capturas vinculadas aos servidores
-INSERT INTO captura (nome, valor, unidade_de_medida, fk_servidor) VALUES 
-('CPU', 85.5, '%', 1),
-('Memoria RAM', 64.0, '%', 1),
-('CPU', 42.1, '%', 2),
-('Memoria RAM', 55.3, '%', 2);
-
 
 
 SELECT * FROM usuario;
