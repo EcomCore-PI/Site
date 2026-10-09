@@ -43,7 +43,7 @@ create table captura(
 create table alerta (
     id int primary key auto_increment,
     fk_servidor int not null,
-    componente not null,
+    componente varchar(45) not null,
     valor_medido float not null,
     limite tinyint not null,
     nivel ENUM('Atenção', 'Crítico') not null,
