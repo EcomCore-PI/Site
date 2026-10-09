@@ -138,14 +138,10 @@ def atualizar_alertas(cursor, dados):
 
 
 def gravar_capturas(dados):
-    # (nome, valor, unidade_de_medida) -> mesmas colunas da tabela `captura`
-    # Os nomes 'CPU' e 'Memoria RAM' seguem os exemplos do banco-ecommerce.sql
     capturas = [
         ("CPU", dados["cpu_percent"], "%"),
         ("Memoria RAM", dados["memoria_percent"], "%"),
         ("Disco", dados["disco_percent"], "%"),
-        ("Rede Recebida", dados["bytes_recebidos"], "MB"),
-        ("Rede Enviada", dados["bytes_enviados"], "MB"),
     ]
 
     conexao = mysql.connector.connect(**CONFIG_BANCO)
