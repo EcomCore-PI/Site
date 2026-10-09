@@ -57,7 +57,7 @@
                     </div>
 
                     <div id="div_aguardar" class="loading-div" style="display: none;">
-                        <img src="./assets/circle-loading.gif" id="loading-gif" alt="Carregando">
+                        <img src="./assets/icon/carregando.gif" id="loading-gif" alt="Carregando">
                     </div>
                     <div id="div_erros_login"></div>
                 </div>
@@ -116,17 +116,17 @@
                     if (sessionStorage.CARGO_USUARIO == "Analista") {
                     setTimeout(function () {
                         window.location = "http://localhost:8000/index.html";
-                    }, 1000); // apenas para exibir o loading
+                    }, 1000); 
                     }
                     else if (sessionStorage.CARGO_USUARIO == "Gerente") {
                     setTimeout(function () {
                         window.location = "http://localhost:8000/index.html";
-                    }, 1000); // apenas para exibir o loading
+                    }, 1000); 
                     }
                     else if (sessionStorage.CARGO_USUARIO == "RH") {
                     setTimeout(function () {
                         window.location = "./empresa.html";
-                    }, 1000); // apenas para exibir o loadingc
+                    }, 1000); 
                     }
                 });
 
