@@ -111,15 +111,26 @@ def atualizar_alertas(cursor, dados):
         if valor >= 80:
             limite, nivel = (90, "Crítico") if valor >= 90 else (80, "Atenção")
             cursor.execute(
-                "INSERT INTO alerta (fk_servidor, componente, valor_medido, limite, nivel) "
-                "VALUES (%s, %s, %s, %s, %s) "
-                "ON DUPLICATE KEY UPDATE valor_medido = %s, limite = %s, nivel = %s, "
-                "ultima_atualizacao = CURRENT_TIMESTAMP",
-                (ID_SERVIDOR, recurso, valor, limite, nivel, valor, limite, nivel),
+                "SELECT id FROM alerta WHERE fk_servidor = %s "
+                "AND componente = %s AND ativo = 1 FOR UPDATE",
+                (ID_SERVIDOR, recurso),
             )
+            alerta = cursor.fetchone()
+            if alerta:
+                cursor.execute(
+                    "UPDATE alerta SET valor_medido = %s, limite = %s, nivel = %s, "
+                    "ultima_atualizacao = CURRENT_TIMESTAMP WHERE id = %s",
+                    (valor, limite, nivel, alerta[0]),
+                )
+            else:
+                cursor.execute(
+                    "INSERT INTO alerta (fk_servidor, componente, valor_medido, limite, nivel, ativo) "
+                    "VALUES (%s, %s, %s, %s, %s, 1)",
+                    (ID_SERVIDOR, recurso, valor, limite, nivel),
+                )
         else:
             cursor.execute(
-                "UPDATE alerta SET data_fim = CURRENT_TIMESTAMP, "
+                "UPDATE alerta SET ativo = 0, data_fim = CURRENT_TIMESTAMP, "
                 "ultima_atualizacao = CURRENT_TIMESTAMP "
                 "WHERE fk_servidor = %s AND componente = %s AND ativo = 1",
                 (ID_SERVIDOR, recurso),
@@ -141,6 +152,11 @@ def gravar_capturas(dados):
     cursor = None
     try:
         cursor = conexao.cursor()
+        # Serializa as coletas do mesmo servidor até o commit, evitando que
+        # dois coletores criem alertas duplicados após consultar ao mesmo tempo.
+        cursor.execute("SELECT id FROM servidor WHERE id = %s FOR UPDATE", (ID_SERVIDOR,))
+        if cursor.fetchone() is None:
+            raise ValueError(f"Servidor {ID_SERVIDOR} não cadastrado na tabela servidor.")
         cursor.executemany(
             "INSERT INTO captura (nome, valor, unidade_de_medida, fk_servidor) "
             "VALUES (%s, %s, %s, %s)",

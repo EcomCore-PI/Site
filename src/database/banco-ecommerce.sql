@@ -50,9 +50,9 @@ create table alerta (
     data_inicio datetime not null default current_timestamp,
     ultima_atualizacao datetime not null default current_timestamp,
     data_fim datetime null,
-    ativo tinyint generated always as (if(data_fim is null, 1, null)) stored,
+    ativo tinyint(1) not null default 1,
     constraint fk_alerta_servidor foreign key (fk_servidor) references servidor(id),
-    unique key uq_alerta_ativo (fk_servidor, recurso, ativo)
+    index idx_alerta_ativo (fk_servidor, componente, ativo)
 );
 
 CREATE OR REPLACE VIEW vwCapturas AS
@@ -88,18 +88,19 @@ JOIN servidor s ON c.fk_servidor = s.id;
     
      
      
- -- 1. Inserindo a Empresa (Assumirá ID 1)
+INSERT INTO servidor (id, nome, fk_empresa)
+VALUES (1, 'Servidor de monitoramento', 1);
+
 INSERT INTO empresa (cnpj, razao_social, nome_fantasia, email_contato) 
 VALUES ('60746948000112', 'Banco Bradesco S.A.', 'Bradesco', 'email@exemplo.com');
 
--- 2. Inserindo os primeiros usuários (Corrigida a falta do 'cargo' da Beth)
+
 INSERT INTO usuario (nome, email, senha, cargo, fk_empresa) 
 VALUES ('Beth', 'xpto@mercado.livre', '12345678', 'Gerente', 1);
 
 INSERT INTO usuario (nome, email, senha, cargo, fk_empresa) 
 VALUES ('William', 'analista@mercado.livre','87654321', 'Analista', 1);
 
--- 3. Inserindo os usuários solicitados (Adicionado o 'fk_empresa')
 INSERT INTO usuario (nome, email, senha, cargo, fk_empresa) VALUES 
 ('Valdito', 'valdito@gmail.com', 'Senha123', 'Gerente', 1),
 ('Ashey', 'ashey@gmail.com', 'Senha123', 'Analista', 1),
