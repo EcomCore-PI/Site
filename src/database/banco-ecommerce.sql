@@ -158,8 +158,8 @@ INSERT INTO empresa (cnpj, razao_social, nome_fantasia, email_contato)
 VALUES ('60746948000112', 'Banco Bradesco S.A.', 'Bradesco', 'email@exemplo.com');
 
 INSERT INTO usuario (nome, email, senha, cargo, fk_empresa) VALUES
-('Marco',    'xpto@mercado.livre',     '12345678', 'Gerente',  1),
-('Isabelle', 'analista@mercado.livre', '87654321', 'Analista', 1),
+('Marco',    'marco@gmail.com',     'Senha123', 'Gerente',  1),
+('Isabelle', 'isa@gmail.com', 'Senha123', 'Analista', 1),
 ('Ana', 'ana@gmail.com',      'Senha123', 'Gerente',  1),
 ('João',   'joao@gmail.com',        'Senha123', 'Analista', 1),
 ('Math',    'math@gmail.com',         'Senha123', 'RH',       1);
