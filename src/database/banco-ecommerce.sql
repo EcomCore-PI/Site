@@ -154,24 +154,32 @@ CREATE TABLE alerta (
 
 
 
-INSERT INTO empresa (cnpj, razao_social, nome_fantasia, email_contato) 
+INSERT INTO empresa (cnpj, razao_social, nome_fantasia, email_contato)
 VALUES ('60746948000112', 'Banco Bradesco S.A.', 'Bradesco', 'email@exemplo.com');
 
-INSERT INTO usuario (nome, email, senha, cargo, fk_empresa) 
-VALUES ('Beth', 'xpto@mercado.livre', '12345678', 'Gerente', 1);
+INSERT INTO usuario (nome, email, senha, cargo, fk_empresa) VALUES
+('Marco',    'xpto@mercado.livre',     '12345678', 'Gerente',  1),
+('Isabelle', 'analista@mercado.livre', '87654321', 'Analista', 1),
+('Ana', 'ana@gmail.com',      'Senha123', 'Gerente',  1),
+('João',   'joao@gmail.com',        'Senha123', 'Analista', 1),
+('Math',    'math@gmail.com',         'Senha123', 'RH',       1);
 
-INSERT INTO usuario (nome, email, senha, cargo, fk_empresa) 
-VALUES ('William', 'analista@mercado.livre','87654321', 'Analista', 1);
+INSERT INTO local_empresa (fk_empresa, nome_local, cidade, estado) VALUES
+(1, 'Data Center Sao Paulo',      'Sao Paulo',      'SP'),
+(1, 'Data Center Rio de Janeiro', 'Rio de Janeiro', 'RJ');
 
-INSERT INTO usuario (nome, email, senha, cargo, fk_empresa) VALUES 
-('Valdito', 'valdito@gmail.com', 'Senha123', 'Gerente', 1),
-('Ashey', 'ashey@gmail.com', 'Senha123', 'Analista', 1),
-('Math', 'math@gmail.com', 'Senha123', 'RH', 1);
+-- fk_local precisa existir em local_empresa COM a mesma fk_empresa (FK composta)
+INSERT INTO servidor (nome, fk_empresa, fk_local) VALUES
+('Servidor SP - Banco de Dados', 1, 1),
+('Servidor RJ - Aplicacao',      1, 2);
 
-INSERT INTO usuario (nome, email, senha, cargo, enviou_email, fk_empresa) VALUES 
-('Math', 'math@gmail.com', 'Senha123', 'RH', default, 1);
+-- Os nomes de tipo_componente e componente precisam ser IGUAIS:
+-- o servidor.py liga um ao outro pelo nome.
+INSERT INTO tipo_componente (nome) VALUES ('CPU'), ('Memoria RAM'), ('Disco');
 
+INSERT INTO metrica (fk_tipo_componente, limite_atencao, limite_critico)
+SELECT id, 80, 90 FROM tipo_componente;
 
-INSERT INTO servidor (nome, fk_empresa) VALUES 
-('Servidor SP - Banco de Dados', 1),
-('Servidor RJ - Aplicação', 1);
+INSERT INTO componente (fk_servidor, nome, descricao)
+SELECT s.id, t.nome, CONCAT('Monitoramento de ', t.nome)
+FROM servidor s CROSS JOIN tipo_componente t;

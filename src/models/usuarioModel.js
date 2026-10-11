@@ -1,94 +1,38 @@
 var database = require("../database/config")
 
-function autenticar(email, senha) {
-    console.log("ACESSEI O USUARIO MODEL \n \n\t\t >> Se aqui der erro de 'Error: connect ECONNREFUSED',\n \t\t >> verifique suas credenciais de acesso ao banco\n \t\t >> e se o servidor de seu BD está rodando corretamente. \n\n function entrar(): ", email, senha)
+// Esquema: servidor -> componente -> captura.
+// O "nome" do recurso ('CPU', 'Memoria RAM', 'Disco') é o nome do componente.
+
+function buscarUltimasCapturas(fk_servidor, limite_linhas, nome) {
     var instrucaoSql = `
-        SELECT id, nome, email, fk_empresa as empresaId, cargo FROM usuario WHERE email = '${email}' AND senha = '${senha}';
+        SELECT c.nome, cap.valor, cap.horario
+        FROM captura cap
+        JOIN componente c ON c.id = cap.fk_componente
+        WHERE c.fk_servidor = ? AND c.nome = ?
+        ORDER BY cap.id DESC
+        LIMIT ?;
     `;
-    console.log("Executando a instrução SQL: \n" + instrucaoSql);
-    return database.executar(instrucaoSql);
+    return database.executar(instrucaoSql, [fk_servidor, nome, Number(limite_linhas)]);
 }
 
-
-function cadastrar(nome, email, senha, cargo, fk_empresa) {
+function buscarTempoReal(fk_servidor, nome, limite_linhas) {
     var instrucaoSql = `
-        INSERT INTO usuario (nome, email, senha, cargo, fk_empresa) VALUES (?, ?, ?, ?, ?);
+        SELECT cap.valor, cap.horario
+        FROM captura cap
+        JOIN componente c ON c.id = cap.fk_componente
+        WHERE c.fk_servidor = ? AND c.nome = ?
+        ORDER BY cap.id DESC
+        LIMIT ?;
     `;
-    return database.executar(instrucaoSql, [nome, email, senha, cargo, fk_empresa]);
+    return database.executar(instrucaoSql, [fk_servidor, nome, Number(limite_linhas)]);
 }
 
-function remover(id, fk_empresa) {
+function inserirCaptura(fk_componente, fk_tipo_componente, valor, unidade_medida) {
     var instrucaoSql = `
-        DELETE FROM usuario WHERE id = ? AND fk_empresa = ?;
+        INSERT INTO captura (fk_componente, fk_tipo_componente, valor, unidade_medida)
+        VALUES (?, ?, ?, ?);
     `;
-    return database.executar(instrucaoSql, [id, fk_empresa]);
+    return database.executar(instrucaoSql, [fk_componente, fk_tipo_componente, valor, unidade_medida]);
 }
 
-function atualizar(id, nova_senha, fk_empresa) {
-    var instrucaoSql = `
-        UPDATE usuario SET senha = ? WHERE id = ? AND fk_empresa = ?;
-    `;
-    return database.executar(instrucaoSql, [nova_senha, id, fk_empresa]);
-}
-
-function listar(fk_empresa) {
-    var instrucaoSql = `
-        SELECT id, nome, email, cargo FROM usuario
-        WHERE fk_empresa = ?
-        ORDER BY FIELD(cargo, 'RH', 'Gerente', 'Analista'), nome;
-    `;
-    return database.executar(instrucaoSql, [fk_empresa]);
-}
-
-function listarPorNome(fk_empresa, nome) {
-    var instrucaoSql = `Select nome, email, cargo from usuario where fk_empresa = ${fk_empresa} and nome = ${nome}`
-
-    return database.executar(instrucaoSql)
-}
-
-function listarPorCargo(fk_empresa, cargo) {
-    var instrucaoSql = `Select nome, email, cargo from usuario where fk_empresa = ${fk_empresa} and cargo = ${cargo}`
-
-    return database.executar(instrucaoSql)
-}
-
-function listarPorNomeCargo(fk_empresa, nome, cargo) {
-    var instrucaoSql = `Select nome, email, cargo from usuario where fk_empresa = ${fk_empresa} and nome = ${nome} and cargo = ${cargo}`
-
-    return database.executar(instrucaoSql)
-}
-
-function esqueceuSenha(senha, email, id, cargo) {
-    var instrucaoSql = `update usuario
-    set senha = ${senha}, email = ${email}
-    where id = ${id}
-    and cargo = ${cargo}`
-
-    return database.executar(instrucaoSql)
-}
-
-function buscarEmailPendentes() {
-    var instrucaoSql = `SELECT id, nome, email, senha FROM usuario WHERE cargo = 'RH' and enviou_email = 0`;
-
-    return database.executar(instrucaoSql)
-}
-
-function marcarComoEnviado(id) {
-    var instrucaoSql = `update usuario set enviou_email = 1 where id = ${id}`
-
-    return database.executar(instrucaoSql)
-}
-
-module.exports = {
-    autenticar,
-    cadastrar,
-    remover,
-    atualizar,
-    listar,
-    listarPorNome,
-    listarPorCargo,
-    listarPorNomeCargo,
-    buscarEmailPendentes,
-    marcarComoEnviado,
-    esqueceuSenha,
-};
+module.exports = { buscarTempoReal, buscarUltimasCapturas, inserirCaptura }

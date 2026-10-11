@@ -1,62 +1,46 @@
 var database = require("../database/config.js")
 
 function buscarServidorId(id) {
-    var instrucaoSql = `SELECT * FROM servidor WHERE id = ${id}`;
-    return database.executar(instrucaoSql);
+    return database.executar(`SELECT * FROM servidor WHERE id = ?`, [id]);
 }
 
-function inserirServidor(nome, fk_empresa) {
-    var instrucaoSql = `INSERT INTO servidor (nome, fk_empresa) VALUES ('${nome}', ${fk_empresa})`;
-
-    return database.executar(instrucaoSql)
+// fk_local é obrigatório e precisa existir em local_empresa para a MESMA empresa (FK composta)
+function inserirServidor(nome, fk_empresa, fk_local) {
+    return database.executar(
+        `INSERT INTO servidor (nome, fk_empresa, fk_local) VALUES (?, ?, ?)`,
+        [nome, fk_empresa, fk_local]
+    );
 }
 
 function listarPorEmpresa(fk_empresa) {
-    var instrucaoSql = `SELECT * FROM servidor WHERE fk_empresa = ${fk_empresa};`;
-    return database.executar(instrucaoSql);
+    return database.executar(`SELECT * FROM servidor WHERE fk_empresa = ?`, [fk_empresa]);
 }
 
 function excluirDash(id) {
-    var instrucaoSql = `DELETE FROM servidor WHERE id = ${id};`;
-    return database.executar(instrucaoSql);
+    return database.executar(`DELETE FROM servidor WHERE id = ?`, [id]);
 }
 
+// Capturas acima de um valor para um componente de um servidor
 function aviso(nome, id, valor) {
     var instrucaoSql = `
-    SELECT
-        e.nome_fantasia,
-        s.nome AS servidor,
-        c.valor AS cpu
-    FROM empresa e
-    JOIN servidor s
-        ON e.id = s.fk_empresa
-    JOIN captura c
-        ON s.id = c.fk_servidor
-    WHERE c.nome = ${nome} and s.id = ${id}
-    AND c.valor > ${valor};`
-    return database.executar(instrucaoSql);
+        SELECT e.nome_fantasia, s.nome AS servidor, cap.valor
+        FROM empresa e
+        JOIN servidor s ON e.id = s.fk_empresa
+        JOIN componente c ON c.fk_servidor = s.id
+        JOIN captura cap ON cap.fk_componente = c.id
+        WHERE c.nome = ? AND s.id = ? AND cap.valor > ?;
+    `;
+    return database.executar(instrucaoSql, [nome, id, valor]);
 }
-// Analisar esse aviso para ver se cumpre com nossa regra pq por exemplo se o valor retornar
-//  em % temos que fazer o calculo no valor por enquanto joguei um parametro de valor
-
-// A view é: 
-//    SELECT * FROM vwAViso 
-//    WHERE c.nome = ${nome} and s.id = ${id}
-//    AND c.valor > ${valor};`
-
-
 
 function buscarDashComEmpresa(id) {
-     var instrucaoSql = `SELECT s.id, e.nome_fantasia
-     FROM servidor s
-     JOIN empresa e on e.id = s.fk_empresa 
-     WHERE s.id = ${id}`;
-
-     return database.executar(instrucaoSql)
+    var instrucaoSql = `
+        SELECT s.id, e.nome_fantasia
+        FROM servidor s
+        JOIN empresa e ON e.id = s.fk_empresa
+        WHERE s.id = ?;
+    `;
+    return database.executar(instrucaoSql, [id]);
 }
 
-// A view é:
-//  SELECT * FROM buscarDashPorEmpresa WHERE s.id = ${id};
-// 
-
-module.exports = {buscarServidorId, inserirServidor, listarPorEmpresa, excluirDash, buscarDashComEmpresa, aviso}
+module.exports = { buscarServidorId, inserirServidor, listarPorEmpresa, excluirDash, buscarDashComEmpresa, aviso }

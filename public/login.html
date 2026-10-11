@@ -65,6 +65,7 @@
         </div>
     </div>
 </body>
+
 </html>
 
 <script>
@@ -113,20 +114,18 @@
                     sessionStorage.CARGO_USUARIO = json.cargo;
                     sessionStorage.FK_EMPRESA = json.fk_empresa;
 
-                    if (sessionStorage.CARGO_USUARIO == "Analista") {
-                    setTimeout(function () {
-                        window.location = "http://localhost:8000/index.html";
-                    }, 1000); 
-                    }
-                    else if (sessionStorage.CARGO_USUARIO == "Gerente") {
-                    setTimeout(function () {
-                        window.location = "http://localhost:8000/index.html";
-                    }, 1000); 
+                    // O monitoramento roda na porta 8000 do MESMO host em que o usuário abriu o site
+                    var urlMonitoramento = window.location.protocol + "//" + window.location.hostname + ":8000/index.html";
+
+                    if (sessionStorage.CARGO_USUARIO == "Analista" || sessionStorage.CARGO_USUARIO == "Gerente") {
+                        setTimeout(function () {
+                            window.location = urlMonitoramento;
+                        }, 1000);
                     }
                     else if (sessionStorage.CARGO_USUARIO == "RH") {
-                    setTimeout(function () {
-                        window.location = "./empresa.html";
-                    }, 1000); 
+                        setTimeout(function () {
+                            window.location = "./empresa.html";
+                        }, 1000);
                     }
                 });
 
@@ -142,6 +141,7 @@
 
         }).catch(function (erro) {
             console.log(erro);
+            finalizarAguardar("Não foi possível conectar ao servidor. Tente novamente.");
         })
 
         return false;

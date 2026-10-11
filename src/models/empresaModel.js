@@ -1,15 +1,17 @@
 var database = require("../database/config");
 
 function buscarPorId(id) {
-  var instrucaoSql = `SELECT * FROM empresa WHERE id = '${id}'`;
-
-  return database.executar(instrucaoSql);
+  return database.executar(`SELECT * FROM empresa WHERE id = ?`, [id]);
 }
 
 function buscarPorCnpj(cnpj) {
-  var instrucaoSql = `SELECT * FROM empresa WHERE cnpj = '${cnpj}'`;
+  return database.executar(`SELECT * FROM empresa WHERE cnpj = ?`, [cnpj]);
+}
 
-  return database.executar(instrucaoSql);
+function cadastrar(razao_social, cnpj, email_contato) {
+  // email_contato é NOT NULL na tabela empresa
+  var instrucaoSql = `INSERT INTO empresa (cnpj, razao_social, email_contato) VALUES (?, ?, ?)`;
+  return database.executar(instrucaoSql, [cnpj, razao_social, email_contato || "nao-informado@ecomcore.com"]);
 }
 
 function listar() {
@@ -19,10 +21,6 @@ function listar() {
 }
 
 
-function cadastrar(cnpj, razao_social, email_contato) {
-  var instrucaoSql = `INSERT INTO empresa (razao_social, cnpj) VALUES ('${cnpj}', '${razao_social}', '${email_contato}')`;
 
-  return database.executar(instrucaoSql);
-}
 
 module.exports = { buscarPorCnpj, buscarPorId, cadastrar, listar};

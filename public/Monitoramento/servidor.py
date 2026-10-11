@@ -1,4 +1,4 @@
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import HTTPServer, SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 import threading
@@ -94,50 +94,77 @@ def coletar_dados():
 # ---------------------------------------------------------------
 # Gravação no banco
 # ---------------------------------------------------------------
-def atualizar_alertas(cursor, dados):
-    # Mesmos limites exibidos na dashboard: atenção >= 80%, crítico >= 90%.
-    # Executado na transação da captura, mesmo com a dashboard fechada.
-    for recurso, campo in (("CPU", "cpu_percent"), ("RAM", "memoria_percent"),
-                           ("Disco", "disco_percent")):
-        valor = dados.get(campo)
-        if not isinstance(valor, (int, float)) or not 0 <= valor <= 100:
-            continue
-        if valor >= 80:
-            limite, nivel = (90, "Crítico") if valor >= 90 else (80, "Atenção")
-            cursor.execute(
-                "SELECT id FROM alerta WHERE fk_servidor = %s "
-                "AND componente = %s AND ativo = 1 FOR UPDATE",
-                (ID_SERVIDOR, recurso),
-            )
-            alerta = cursor.fetchone()
-            if alerta:
-                cursor.execute(
-                    "UPDATE alerta SET valor_medido = %s, limite = %s, nivel = %s, "
-                    "ultima_atualizacao = CURRENT_TIMESTAMP WHERE id = %s",
-                    (valor, limite, nivel, alerta[0]),
-                )
-            else:
-                cursor.execute(
-                    "INSERT INTO alerta (fk_servidor, componente, valor_medido, limite, nivel, ativo) "
-                    "VALUES (%s, %s, %s, %s, %s, 1)",
-                    (ID_SERVIDOR, recurso, valor, limite, nivel),
-                )
-        else:
+# Cadeia de tabelas: servidor -> componente -> captura -> alerta.
+# componente.nome e tipo_componente.nome precisam ser iguais (é por
+# eles que ligamos um ao outro). Os limites vêm da tabela metrica.
+RECURSOS = (
+    # (nome no banco, campo em coletar_dados, nome exibido na dashboard)
+    ("CPU", "cpu_percent", "CPU"),
+    ("Memoria RAM", "memoria_percent", "RAM"),
+    ("Disco", "disco_percent", "Disco"),
+)
+
+
+def carregar_componentes(cursor):
+    """Devolve {nome: (id_componente, id_tipo, id_metrica, limite_atencao, limite_critico)}."""
+    cursor.execute(
+        "SELECT c.nome, c.id, t.id, m.id, m.limite_atencao, m.limite_critico "
+        "FROM componente c "
+        "JOIN tipo_componente t ON t.nome = c.nome "
+        "LEFT JOIN metrica m ON m.fk_tipo_componente = t.id AND m.ativo = 1 "
+        "WHERE c.fk_servidor = %s AND c.ativo = 1",
+        (ID_SERVIDOR,),
+    )
+    mapa = {}
+    for nome, id_comp, id_tipo, id_metrica, atencao, critico in cursor.fetchall():
+        mapa[nome] = (id_comp, id_tipo, id_metrica,
+                      float(atencao) if atencao is not None else None,
+                      float(critico) if critico is not None else None)
+    faltando = [nome for nome, _, _ in RECURSOS if nome not in mapa]
+    if faltando:
+        raise ValueError(
+            f"Servidor {ID_SERVIDOR} sem componente/tipo_componente para: {', '.join(faltando)}. "
+            "Cadastre-os com o mesmo nome em componente e tipo_componente."
+        )
+    return mapa
+
+
+def atualizar_alerta(cursor, info, valor, id_captura):
+    id_comp, _, id_metrica, atencao, critico = info
+    if id_metrica is None or atencao is None or critico is None:
+        return  # sem metrica cadastrada para o tipo, não há o que comparar
+
+    nivel = "critico" if valor >= critico else "atencao" if valor >= atencao else None
+
+    cursor.execute(
+        "SELECT id FROM alerta WHERE fk_componente = %s AND ativo = 1 FOR UPDATE",
+        (id_comp,),
+    )
+    alerta = cursor.fetchone()
+
+    if nivel is None:
+        if alerta:
             cursor.execute(
                 "UPDATE alerta SET ativo = 0, data_fim = CURRENT_TIMESTAMP, "
-                "ultima_atualizacao = CURRENT_TIMESTAMP "
-                "WHERE fk_servidor = %s AND componente = %s AND ativo = 1",
-                (ID_SERVIDOR, recurso),
+                "ultima_atualizacao = CURRENT_TIMESTAMP WHERE id = %s",
+                (alerta[0],),
             )
+    elif alerta:
+        cursor.execute(
+            "UPDATE alerta SET fk_captura = %s, fk_metrica = %s, valor_medido = %s, "
+            "nivel = %s, ultima_atualizacao = CURRENT_TIMESTAMP WHERE id = %s",
+            (id_captura, id_metrica, valor, nivel, alerta[0]),
+        )
+    else:
+        cursor.execute(
+            "INSERT INTO alerta (fk_captura, fk_metrica, fk_componente, valor_medido, "
+            "nivel, ultima_atualizacao, ativo) "
+            "VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP, 1)",
+            (id_captura, id_metrica, id_comp, valor, nivel),
+        )
 
 
 def gravar_capturas(dados):
-    capturas = [
-        ("CPU", dados["cpu_percent"], "%"),
-        ("Memoria RAM", dados["memoria_percent"], "%"),
-        ("Disco", dados["disco_percent"], "%"),
-    ]
-
     conexao = mysql.connector.connect(**CONFIG_BANCO)
     cursor = None
     try:
@@ -147,12 +174,20 @@ def gravar_capturas(dados):
         cursor.execute("SELECT id FROM servidor WHERE id = %s FOR UPDATE", (ID_SERVIDOR,))
         if cursor.fetchone() is None:
             raise ValueError(f"Servidor {ID_SERVIDOR} não cadastrado na tabela servidor.")
-        cursor.executemany(
-            "INSERT INTO captura (nome, valor, unidade_de_medida, fk_servidor) "
-            "VALUES (%s, %s, %s, %s)",
-            [(nome, valor, unidade, ID_SERVIDOR) for nome, valor, unidade in capturas],
-        )
-        atualizar_alertas(cursor, dados)
+
+        componentes = carregar_componentes(cursor)
+
+        for nome, campo, _ in RECURSOS:
+            valor = dados.get(campo)
+            if not isinstance(valor, (int, float)) or not 0 <= valor <= 100:
+                continue
+            info = componentes[nome]
+            cursor.execute(
+                "INSERT INTO captura (fk_componente, fk_tipo_componente, valor, unidade_medida) "
+                "VALUES (%s, %s, %s, %s)",
+                (info[0], info[1], valor, "%"),
+            )
+            atualizar_alerta(cursor, info, valor, cursor.lastrowid)
         conexao.commit()
     except Exception:
         conexao.rollback()
@@ -178,27 +213,39 @@ def loop_gravacao():
 
 def buscar_alertas():
     # Usa o mesmo servidor das capturas; não aceita IDs fornecidos pelo navegador.
+    nomes_exibidos = {nome: exibido for nome, _, exibido in RECURSOS}
     conexao = mysql.connector.connect(**CONFIG_BANCO)
     try:
-        conexao.start_transaction(readonly=True)
         cursor = conexao.cursor(dictionary=True)
         try:
+            cursor.execute("START TRANSACTION READ ONLY")
             cursor.execute(
-                "SELECT nome, MAX(horario) AS horario, "
-                "MAX(horario) >= NOW() - INTERVAL 30 SECOND AS recente "
-                "FROM captura WHERE fk_servidor = %s "
-                "AND nome IN ('CPU', 'Memoria RAM', 'Disco') "
-                "AND unidade_de_medida = '%' AND valor BETWEEN 0 AND 100 "
-                "GROUP BY nome", (ID_SERVIDOR,),
+                "SELECT c.nome, MAX(cap.horario) AS horario, "
+                "MAX(cap.horario) >= NOW() - INTERVAL 30 SECOND AS recente "
+                "FROM captura cap JOIN componente c ON c.id = cap.fk_componente "
+                "WHERE c.fk_servidor = %s "
+                "AND c.nome IN ('CPU', 'Memoria RAM', 'Disco') "
+                "AND cap.unidade_medida = %s AND cap.valor BETWEEN 0 AND 100 "
+                "GROUP BY c.nome", (ID_SERVIDOR, "%"),
             )
             leituras = cursor.fetchall()
             cursor.execute(
-                "SELECT id, componente AS recurso, valor_medido, limite, nivel "
-                "FROM alerta WHERE fk_servidor = %s AND ativo = 1 "
-                "ORDER BY valor_medido DESC, id ASC", (ID_SERVIDOR,),
+                "SELECT a.id, c.nome AS recurso, a.valor_medido, a.nivel, "
+                "m.limite_atencao, m.limite_critico "
+                "FROM alerta a "
+                "JOIN componente c ON c.id = a.fk_componente "
+                "JOIN metrica m ON m.id = a.fk_metrica "
+                "WHERE c.fk_servidor = %s AND a.ativo = 1 "
+                "ORDER BY a.valor_medido DESC, a.id ASC", (ID_SERVIDOR,),
             )
             alertas = cursor.fetchall()
             for alerta in alertas:
+                # a dashboard espera os rótulos antigos
+                critico = alerta["nivel"] == "critico"
+                alerta["limite"] = float(alerta.pop("limite_critico" if critico else "limite_atencao"))
+                alerta.pop("limite_atencao" if critico else "limite_critico")
+                alerta["nivel"] = "Crítico" if critico else "Atenção"
+                alerta["recurso"] = nomes_exibidos.get(alerta["recurso"], alerta["recurso"])
                 alerta["valor_medido"] = float(alerta["valor_medido"])
             horarios = [leitura["horario"] for leitura in leituras if leitura["horario"]]
             return {
@@ -211,7 +258,6 @@ def buscar_alertas():
             cursor.close()
     finally:
         conexao.close()
-
 
 # ---------------------------------------------------------------
 # Servidor HTTP (mantém o /dados que o script.js usa)
@@ -260,9 +306,9 @@ if __name__ == "__main__":
     # Thread separada para gravar no banco sem travar o servidor HTTP
     threading.Thread(target=loop_gravacao, daemon=True).start()
 
-    servidor = HTTPServer(("localhost", 8000), Servidor)
+    servidor = ThreadingHTTPServer(("0.0.0.0", 8000), Servidor)
 
     print("Servidor iniciado!")
-    print("Acesse http://localhost:8000")
+    print("Escutando em 0.0.0.0:8000 (acesse http://IP_DA_INSTANCIA:8000)")
 
     servidor.serve_forever()
