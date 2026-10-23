@@ -87,9 +87,6 @@
             setInterval(sumirMensagem, 5000)
         }
 
-        console.log("FORM LOGIN: ", emailVar);
-        console.log("FORM SENHA: ", senhaVar);
-
         fetch("/usuarios/autenticar", {
             method: "POST",
             headers: {
@@ -114,18 +111,17 @@
                     sessionStorage.CARGO_USUARIO = json.cargo;
                     sessionStorage.FK_EMPRESA = json.fk_empresa;
 
-                    // O monitoramento roda na porta 8000 do MESMO host em que o usuário abriu o site
+                    const cargo = String(json.cargo || "").trim().toLowerCase();
+
+                    // O monitoramento roda na porta 8000 do mesmo host do site.
                     var urlMonitoramento = window.location.protocol + "//" + window.location.hostname + ":8000/index.html";
 
-                    if (sessionStorage.CARGO_USUARIO == "Analista" || sessionStorage.CARGO_USUARIO == "Gerente") {
-                        setTimeout(function () {
-                            window.location = urlMonitoramento;
-                        }, 1000);
-                    }
-                    else if (sessionStorage.CARGO_USUARIO == "RH") {
-                        setTimeout(function () {
-                            window.location = "./empresa.html";
-                        }, 1000);
+                    if (["analista", "gestor", "admin"].includes(cargo)) {
+                        window.location.assign(urlMonitoramento);
+                    } else if (cargo === "rh") {
+                        window.location.assign("./empresa.html");
+                    } else {
+                        finalizarAguardar("O cargo deste usuário não possui uma tela configurada.");
                     }
                 });
 

@@ -1,4 +1,153 @@
 (() => {
+    const status = document.getElementById('metrics-status');
+    if (typeof Chart === 'undefined') {
+        status.textContent = 'Não foi possível carregar os gráficos. Recarregue a página.';
+        status.dataset.error = 'true';
+        return;
+    }
+
+    const MAX_PONTOS = 30;
+    const INTERVALO = 3000;
+    let timer = null;
+    let requisicao = null;
+    const formato = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
+    const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function texto(id, valor) {
+        const elemento = document.getElementById(id);
+        if (elemento) elemento.textContent = valor;
+    }
+
+    function percentual(valor) {
+        return typeof valor === 'number' && Number.isFinite(valor)
+            ? `${formato.format(valor)}%`
+            : '—';
+    }
+
+    function criarGrafico(id, rotulo, cor) {
+        return new Chart(document.getElementById(id), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: rotulo,
+                    data: [],
+                    borderColor: cor,
+                    backgroundColor: `${cor}18`,
+                    fill: true,
+                    borderWidth: 2,
+                    tension: 0.25,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: reduzMovimento.matches ? false : { duration: 250 },
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: item => `${rotulo}: ${percentual(item.parsed.y)}`,
+                        },
+                    },
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { maxTicksLimit: 5, maxRotation: 0 },
+                        title: { display: true, text: 'Horário' },
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { callback: valor => `${valor}%` },
+                    },
+                },
+            },
+        });
+    }
+
+    const graficos = {
+        CPU: criarGrafico('chartCpu', 'CPU', '#60a5fa'),
+        RAM: criarGrafico('chartRam', 'RAM', '#34d399'),
+        Disco: criarGrafico('chartDisco', 'Disco', '#c084fc'),
+    };
+
+    function preencherGrafico(grafico, leituras) {
+        const pontos = Array.isArray(leituras) ? leituras.slice(-MAX_PONTOS) : [];
+        grafico.data.labels = pontos.map(ponto => ponto.horario);
+        grafico.data.datasets[0].data = pontos.map(ponto => ponto.valor);
+        grafico.update(reduzMovimento.matches ? 'none' : undefined);
+    }
+
+    async function atualizarMetricas() {
+        clearTimeout(timer);
+        if (document.hidden || requisicao) return;
+
+        const controller = new AbortController();
+        requisicao = controller;
+        const limite = setTimeout(() => controller.abort(), 8000);
+
+        try {
+            const resposta = await fetch('/dados', {
+                cache: 'no-store',
+                signal: controller.signal,
+            });
+            if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+
+            const dados = await resposta.json();
+            if (!dados.atual || !dados.historico) {
+                throw new Error('Resposta /dados não contém atual e historico.');
+            }
+
+            texto('kpi-cpu', percentual(dados.atual.cpu_percent));
+            texto('kpi-ram', percentual(dados.atual.memoria_percent));
+            texto('kpi-disco', percentual(dados.atual.disco_percent));
+
+            texto('kpi-cpu-info', 'Última captura armazenada no banco');
+            texto('kpi-ram-info', 'Última captura armazenada no banco');
+            texto('kpi-disco-info', 'Última captura armazenada no banco');
+
+            for (const [tipo, grafico] of Object.entries(graficos)) {
+                preencherGrafico(grafico, dados.historico[tipo]);
+            }
+
+            texto(
+                'metrics-status',
+                dados.atual.horario_formatado
+                    ? `Última leitura no banco: ${dados.atual.horario_formatado}`
+                    : 'Aguardando a primeira captura no banco.'
+            );
+            status.dataset.error = 'false';
+        } catch (erro) {
+            if (!document.hidden) {
+                texto('metrics-status', 'Não foi possível consultar as métricas no banco.');
+                status.dataset.error = 'true';
+                console.error('Falha ao atualizar métricas:', erro);
+            }
+        } finally {
+            clearTimeout(limite);
+            requisicao = null;
+            if (!document.hidden) timer = setTimeout(atualizarMetricas, INTERVALO);
+        }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        clearTimeout(timer);
+        if (document.hidden) {
+            requisicao?.abort();
+            Object.values(graficos).forEach(grafico => grafico.stop());
+        } else {
+            atualizarMetricas();
+        }
+    });
+    atualizarMetricas();
+})();
+
+(() => {
     const corpo = document.getElementById('alerts-body');
     const status = document.getElementById('alerts-status');
     const contador = document.getElementById('alerts-count');
@@ -10,7 +159,7 @@
     function mostrarVazio(mensagem) {
         const linha = document.createElement('tr');
         const celula = document.createElement('td');
-        celula.colSpan = 3;
+        celula.colSpan = 5;
         celula.className = 'alerts-empty';
         celula.textContent = mensagem;
         linha.append(celula);
@@ -19,182 +168,80 @@
 
     function renderizar(dados) {
         corpo.replaceChildren();
+
         for (const alerta of dados.alertas) {
             const linha = document.createElement('tr');
             const recurso = document.createElement('td');
-            recurso.textContent = alerta.recurso;
             const valor = document.createElement('td');
-            valor.textContent = `${formato.format(alerta.valor_medido)} %`;
+            const limite = document.createElement('td');
             const nivel = document.createElement('td');
+            const data = document.createElement('td');
             const selo = document.createElement('span');
-            selo.className = 'alert-level alert-level--' + (alerta.nivel === 'Crítico' ? 'critical' : 'warning');
-            selo.textContent = alerta.nivel;
+
+            recurso.textContent = alerta.recurso;
+            valor.textContent = `${formato.format(alerta.valor_medido)} ${alerta.unidade}`;
+            limite.textContent = `${formato.format(alerta.limite)} ${alerta.unidade}`;
+            data.textContent = alerta.data || '—';
+
+            const critico = alerta.nivel === 'CRITICO';
+            selo.className = `alert-level alert-level--${critico ? 'critical' : 'warning'}`;
+            selo.textContent = critico ? 'Crítico' : 'Atenção';
             nivel.append(selo);
-            linha.append(recurso, valor, nivel);
+            linha.append(recurso, valor, limite, nivel, data);
             corpo.append(linha);
         }
+
         if (!dados.alertas.length) {
-            mostrarVazio(dados.incompleto ? 'Leitura incompleta. Aguardando dados de todos os recursos.'
-                : dados.desatualizado ? 'Sem leituras recentes. Aguardando atualização do monitoramento.'
-                : 'Nenhum alerta ativo. Uso abaixo de 80%.');
+            mostrarVazio('Nenhuma ocorrência de alerta foi registrada no banco.');
         }
-        contador.textContent = String(dados.alertas.length);
-        status.textContent = dados.horario ? `Última leitura no banco: ${dados.horario}` : 'Aguardando primeira leitura no banco…';
-        if (dados.incompleto) status.textContent += ' · Dados incompletos';
-        else if (dados.desatualizado) status.textContent += ' · Sem atualização da coleta';
+
+        contador.textContent = String(dados.total ?? dados.alertas.length);
+        status.textContent = 'Exibindo eventos registrados na tabela alerta.';
         recebeuDados = true;
     }
 
-    async function atualizarAlertasDoBanco() {
+    async function atualizarAlertas() {
         clearTimeout(timer);
         if (document.hidden || requisicao) return;
+
         const controller = new AbortController();
         requisicao = controller;
         const limite = setTimeout(() => controller.abort(), 8000);
+
         try {
-            const resposta = await fetch('/alertas', { cache: 'no-store', signal: controller.signal });
-            if (!resposta.ok) throw new Error('Consulta de alertas indisponível');
+            const resposta = await fetch('/alertas', {
+                cache: 'no-store',
+                signal: controller.signal,
+            });
+            if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+
             const dados = await resposta.json();
-            if (document.hidden) return;
-            if (!Array.isArray(dados.alertas)) throw new Error('Resposta inválida');
-            renderizar(dados);
+            if (!Array.isArray(dados.alertas)) {
+                throw new Error('Resposta /alertas inválida.');
+            }
+            if (!document.hidden) renderizar(dados);
         } catch (erro) {
-            if (document.hidden) return;
-            status.textContent = recebeuDados
-                ? 'Sem atualização. Exibindo a última consulta de alertas ao banco.'
-                : 'Não foi possível consultar os alertas no banco.';
-            if (!recebeuDados) {
-                contador.textContent = '—';
-                mostrarVazio('Alertas indisponíveis. Aguardando conexão com o banco.');
+            if (!document.hidden) {
+                status.textContent = recebeuDados
+                    ? 'Não foi possível atualizar os eventos de alerta.'
+                    : 'Não foi possível consultar a tabela de alertas.';
+                if (!recebeuDados) {
+                    contador.textContent = '—';
+                    mostrarVazio('Alertas indisponíveis. Verifique a conexão com o banco.');
+                }
+                console.error('Falha ao atualizar alertas:', erro);
             }
         } finally {
             clearTimeout(limite);
             requisicao = null;
-            if (!document.hidden) timer = setTimeout(atualizarAlertasDoBanco, 3000);
+            if (!document.hidden) timer = setTimeout(atualizarAlertas, 5000);
         }
     }
+
     document.addEventListener('visibilitychange', () => {
         clearTimeout(timer);
         if (document.hidden) requisicao?.abort();
-        else atualizarAlertasDoBanco();
+        else atualizarAlertas();
     });
-    atualizarAlertasDoBanco();
-})();
-
-(() => {
-    const status = document.getElementById('metrics-status');
-    if (typeof Chart === 'undefined') {
-        status.textContent = 'Não foi possível carregar os gráficos. Verifique a conexão e recarregue a página.';
-        status.dataset.error = 'true';
-        return;
-    }
-    const MAX_PONTOS = 30;
-    let timer = null;
-    let requisicao = null;
-    const INTERVALO = 3000;
-    const movimentoReduzido = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const formatador = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
-    const elementos = new Map();
-    const numero = valor => typeof valor === 'number' && Number.isFinite(valor) ? valor : null;
-    const formato = valor => formatador.format(valor);
-    const medida = (valor, unidade) => numero(valor) === null ? '—' : `${formato(valor)} ${unidade}`;
-    const texto = (id, valor) => {
-        if (!elementos.has(id)) elementos.set(id, document.getElementById(id));
-        const elemento = elementos.get(id);
-        if (elemento.textContent === valor) return;
-        elemento.textContent = valor;
-        if (elemento.classList.contains('kpi-value') && !movimentoReduzido.matches && elemento.animate) {
-            elemento.getAnimations().forEach(animacao => animacao.cancel());
-            elemento.animate([{ opacity: 0.65 }, { opacity: 1 }], { duration: 250, easing: 'ease-out' });
-        }
-    };
-    function serie(label, cor, preenchimento = false, tracejada = false) {
-        return { label, data: [], borderColor: cor, backgroundColor: cor + '18',
-            fill: preenchimento, borderWidth: 2, tension: 0.25,
-            pointRadius: 0, pointHoverRadius: 4, pointHitRadius: 12,
-            borderDash: tracejada ? [5, 4] : [] };
-    }
-    function criarGrafico(id, datasets, unidade, max) {
-        return new Chart(document.getElementById(id), {
-            type: 'line', data: { labels: [], datasets },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                resizeDelay: 150,
-                devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
-                animation: movimentoReduzido.matches ? false : { duration: 350, easing: 'easeOutQuart' },
-                color: '#a8b8cd', font: { family: 'Inter, sans-serif', size: 16 },
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { display: datasets.length > 1, position: 'bottom', labels: { font: { size: 12 }, color: '#cbd5e1', boxWidth: 18, boxHeight: 2, padding: 10 } },
-                    tooltip: { titleFont: { size: 16 }, bodyFont: { size: 16 }, backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#cbd5e1', borderColor: '#40526a', borderWidth: 1, padding: 12,
-                        callbacks: { label: item => `${item.dataset.label}: ${medida(item.parsed.y, unidade)}` } }
-                },
-                scales: {
-                    x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 12 }, color: '#a8b8cd', maxTicksLimit: 4, maxRotation: 0 }, title: { font: { size: 12 }, display: true, text: 'Horário', color: '#a8b8cd' } },
-                    y: { beginAtZero: true, ...(max === undefined ? {} : { max }), border: { display: false }, grid: { color: '#ffffff0b' }, ticks: { font: { size: 12 }, color: '#a8b8cd', maxTicksLimit: 5 }, title: { font: { size: 12 }, display: true, text: unidade, color: '#a8b8cd' } }
-                }
-            }
-        });
-    }
-    const cpu = criarGrafico('chartCpu', [serie('CPU', '#60a5fa', true)], '%', 100);
-    const ram = criarGrafico('chartRam', [serie('RAM', '#60a5fa', true)], '%', 100);
-    const disco = criarGrafico('chartDisco', [serie('Disco', '#60a5fa', true)], '%', 100);
-    // Reservado para a futura integração; /dados não alimenta este gráfico.
-    const rede = criarGrafico('chartRede', [serie('Download', '#60a5fa'), serie('Upload', '#5eead4', false, true)], 'MiB/s');
-    function adicionarPonto(grafico, horario, valores) {
-        grafico.data.labels.push(horario);
-        grafico.data.datasets.forEach((dataset, i) => dataset.data.push(valores[i]));
-        if (grafico.data.labels.length > MAX_PONTOS) {
-            grafico.data.labels.shift();
-            grafico.data.datasets.forEach(dataset => dataset.data.shift());
-        }
-        grafico.options.animation = movimentoReduzido.matches ? false : { duration: 350, easing: 'easeOutQuart' };
-        grafico.update(grafico.data.labels.length === 1 || movimentoReduzido.matches ? 'none' : undefined);
-    }
-    async function atualizar() {
-        clearTimeout(timer);
-        if (document.hidden || requisicao) return;
-        const inicio = performance.now();
-        const controller = new AbortController();
-        requisicao = controller;
-        const limite = setTimeout(() => controller.abort(), 8000);
-        try {
-            const resposta = await fetch('/dados', { cache: 'no-store', signal: controller.signal });
-            if (!resposta.ok) throw new Error('Resposta inválida');
-            const dados = await resposta.json();
-            if (document.hidden) return;
-            const d = Array.isArray(dados) ? dados[dados.length - 1] : dados;
-            if (!d || typeof d !== 'object') throw new Error('Sem leituras');
-            const horario = d.horario_formatado || new Date().toLocaleTimeString('pt-BR');
-            texto('kpi-cpu', medida(d.cpu_percent, '%'));
-            texto('kpi-cpu-info', `${medida(d.cpu_count, 'núcleos')} · ${medida(d.cpu_freq, 'MHz')}`);
-            texto('kpi-ram', medida(d.memoria_percent, '%'));
-            texto('kpi-ram-info', `${medida(d.memoria_used, 'GiB')} usados de ${medida(d.memoria_total, 'GiB')}`);
-            texto('kpi-disco', medida(d.disco_percent, '%'));
-            texto('kpi-disco-info', `${medida(d.disco_free, 'GiB')} livres de ${medida(d.disco_total, 'GiB')}`);
-            adicionarPonto(cpu, horario, [numero(d.cpu_percent)]);
-            adicionarPonto(ram, horario, [numero(d.memoria_percent)]);
-            adicionarPonto(disco, horario, [numero(d.disco_percent)]);
-            status.textContent = `Última leitura: ${horario} · Histórico de até ${MAX_PONTOS} leituras`;
-            status.dataset.error = 'false';
-        } catch (erro) {
-            if (document.hidden) return;
-            status.textContent = 'Sem atualização: verifique se o servidor de monitoramento está rodando. Os valores exibidos são da última leitura recebida.';
-            status.dataset.error = 'true';
-        } finally {
-            clearTimeout(limite);
-            requisicao = null;
-            if (!document.hidden) timer = setTimeout(atualizar, Math.max(500, INTERVALO - (performance.now() - inicio)));
-        }
-    }
-    document.addEventListener('visibilitychange', () => {
-        clearTimeout(timer);
-        if (document.hidden) {
-            requisicao?.abort();
-            [cpu, ram, disco, rede].forEach(grafico => grafico.stop());
-        } else {
-            atualizar();
-        }
-    });
-    atualizar();
+    atualizarAlertas();
 })();

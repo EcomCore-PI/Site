@@ -63,8 +63,8 @@
             <article class="kpi-card">
                 <p class="kpi-label">Rede</p>
                 <p class="kpi-value" id="kpi-rede">—</p>
-                <p class="kpi-description">Download</p>
-                <p class="kpi-detail" id="kpi-rede-info">Aguardando dados</p>
+                <p class="kpi-description">Métrica ainda não coletada</p>
+                <p class="kpi-detail" id="kpi-rede-info">Rede não integrada</p>
             </article>
         </section>
         <p class="metrics-status" id="metrics-status" role="status">Aguardando primeira leitura…</p>
@@ -83,23 +83,23 @@
                 <div class="chart-container"><canvas id="chartDisco" role="img" aria-label="Ocupação do armazenamento">Ocupação do armazenamento</canvas></div>
             </article>
             <article class="card chart-card">
-                <header class="chart-heading"><h3>Tráfego de rede</h3><p>Velocidade de download da rede</p></header>
-                <div class="chart-container"><canvas id="chartRede" role="img" aria-label="Tráfego de rede aguardando integração">Aguardando dados de rede</canvas></div>
+                <header class="chart-heading"><h3>Tráfego de rede</h3><p>Integração de rede ainda não configurada</p></header>
+                <div class="chart-container"><p class="alerts-empty">A coleta atual grava CPU, RAM e disco.</p></div>
             </article>
         </section>
         <aside class="alerts-panel" aria-labelledby="alerts-title">
             <header class="alerts-heading">
-                <div><h3 id="alerts-title">Alertas ativos</h3><p>CPU, memória, armazenamento e rede</p></div>
+                <div><h3 id="alerts-title">Histórico de alertas</h3><p>Eventos gravados no banco</p></div>
                 <span class="alerts-count" id="alerts-count" aria-label="Quantidade de alertas">—</span>
             </header>
             <p class="alerts-status" id="alerts-status" role="status">Aguardando primeira leitura…</p>
-            <div class="alerts-table-wrapper" tabindex="0" role="region" aria-label="Tabela de alertas ativos">
+            <div class="alerts-table-wrapper" tabindex="0" role="region" aria-label="Histórico de alertas registrados">
                 <table class="alerts-table">
-                    <thead><tr><th scope="col">Recurso</th><th scope="col">Uso</th><th scope="col">Nível</th></tr></thead>
-                    <tbody id="alerts-body"><tr><td colspan="3" class="alerts-empty">Aguardando dados do monitoramento.</td></tr></tbody>
+                    <thead><tr><th scope="col">Recurso</th><th scope="col">Valor</th><th scope="col">Limite</th><th scope="col">Nível</th><th scope="col">Data</th></tr></thead>
+                    <tbody id="alerts-body"><tr><td colspan="5" class="alerts-empty">Aguardando dados do monitoramento.</td></tr></tbody>
                 </table>
             </div>
-            <p class="alerts-note">Atenção ≥ 80% · Crítico ≥ 90%<br>Atualizado a cada leitura recebida.</p>
+            <p class="alerts-note">Os limites vêm da métrica ligada à especificação técnica. A tabela registra ATENCAO e CRITICO quando o uso entra em um nível de alerta ou muda de nível.</p>
         </aside>
         </div>
     </main>
