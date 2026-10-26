@@ -10,7 +10,6 @@
     <script src="./js/sessao.js"></script>
 
     <link rel="icon" href="./assets/imgs/EcomCore.png">
-    <link rel="stylesheet" href="./css/cabecalho.css">
     <link rel="stylesheet" href="./css/login.css">
 </head>
 
@@ -117,7 +116,19 @@
                     var urlMonitoramento = window.location.protocol + "//" + window.location.hostname + ":8000/index.html";
 
                     if (["analista", "gestor", "admin"].includes(cargo)) {
-                        window.location.assign(urlMonitoramento);
+                        fetch("/servidores/empresa/" + json.fk_empresa)
+                            .then(function (r) { return r.json(); })
+                            .then(function (lista) {
+                                if (!Array.isArray(lista) || lista.length === 0) {
+                                    finalizarAguardar("Sua empresa ainda não possui servidor cadastrado.");
+                                    return;
+                                }
+                                sessionStorage.ID_SERVIDOR = lista[0].id;
+                                window.location.assign(urlMonitoramento + "?servidor=" + lista[0].id);
+                            })
+                            .catch(function () {
+                                finalizarAguardar("Não foi possível buscar o servidor da empresa.");
+                            });
                     } else if (cargo === "rh") {
                         window.location.assign("./empresa.html");
                     } else {

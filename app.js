@@ -18,6 +18,7 @@ var app = express();
 var indexRouter = require("./src/routes/index");
 var usuarioRouter = require("./src/routes/usuarios");
 var empresasRouter = require("./src/routes/empresas");
+var servidoresRouter = require("./src/routes/servidores");
 
 
 require("./src/controllers/emailController")
@@ -31,6 +32,29 @@ app.use(cors());
 app.use("/", indexRouter);
 app.use("/usuarios", usuarioRouter);
 app.use("/empresas", empresasRouter);
+app.use("/servidores", servidoresRouter);
+
+// Encaminha as requisições do dashboard para a API Python
+app.get(["/dados", "/alertas"], async (req, res) => {
+    try {
+        const resposta = await fetch(
+            `http://monitor:8000${req.originalUrl}`
+        );
+
+        const dados = await resposta.text();
+
+        res.status(resposta.status)
+            .type(resposta.headers.get("content-type") || "application/json")
+            .send(dados);
+
+    } catch (erro) {
+        console.error("Erro ao consultar a API Python:", erro.message);
+
+        res.status(502).json({
+            erro: "Não foi possível acessar o serviço de monitoramento."
+        });
+    }
+});
 
 app.listen(PORTA_APP, function () {
     console.log(`

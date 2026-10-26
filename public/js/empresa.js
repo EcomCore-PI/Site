@@ -1,7 +1,16 @@
 var FK_EMPRESA = sessionStorage.FK_EMPRESA;
 var ID_LOGADO = sessionStorage.ID_USUARIO;
 
-if (sessionStorage.CARGO_USUARIO != "RH" || FK_EMPRESA == undefined) {
+var CARGO_USUARIO = String(
+    sessionStorage.CARGO_USUARIO || ""
+).trim().toLowerCase();
+
+if (
+    CARGO_USUARIO !== "rh" ||
+    !FK_EMPRESA ||
+    FK_EMPRESA === "undefined" ||
+    FK_EMPRESA === "null"
+) {
     window.location = "./login.html";
 }
 
