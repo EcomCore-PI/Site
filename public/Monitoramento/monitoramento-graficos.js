@@ -83,6 +83,25 @@
         grafico.update(reduzMovimento.matches ? 'none' : undefined);
     }
 
+    function renderizarKpis(dados) {
+        const recursoAlertas = dados.recurso_mais_alertas;
+        texto('kpi-recurso-alertas', recursoAlertas ? recursoAlertas.recurso : '—');
+
+        const pico = dados.pico_utilizacao;
+        texto('kpi-pico', pico ? percentual(pico.valor) : '—');
+        texto('kpi-pico-info', pico ? `${pico.recurso}` : '');
+
+        const acimaAtencao = dados.leituras_acima_atencao;
+        const possuiLeituras = acimaAtencao && acimaAtencao.total > 0;
+        texto('kpi-acima-atencao', possuiLeituras ? percentual(acimaAtencao.percentual) : '—');
+        texto('kpi-acima-atencao-info', possuiLeituras
+            ? `${acimaAtencao.quantidade} de ${acimaAtencao.total}`
+            : '');
+
+        texto('kpi-criticos', String(dados.alertas_criticos_24h ?? 0));
+        texto('kpi-criticos-info', '');
+    }
+
     async function atualizarMetricas() {
         clearTimeout(timer);
         if (document.hidden || requisicao) return;
@@ -107,24 +126,26 @@
             texto('kpi-ram', percentual(dados.atual.memoria_percent));
             texto('kpi-disco', percentual(dados.atual.disco_percent));
 
-            texto('kpi-cpu-info', 'Última captura armazenada no banco');
-            texto('kpi-ram-info', 'Última captura armazenada no banco');
-            texto('kpi-disco-info', 'Última captura armazenada no banco');
+            texto('kpi-cpu-info', '');
+            texto('kpi-ram-info', '');
+            texto('kpi-disco-info', '');
 
             for (const [tipo, grafico] of Object.entries(graficos)) {
                 preencherGrafico(grafico, dados.historico[tipo]);
             }
 
+            renderizarKpis(dados.kpis || {});
+
             texto(
                 'metrics-status',
                 dados.atual.horario_formatado
-                    ? `Última leitura no banco: ${dados.atual.horario_formatado}`
-                    : 'Aguardando a primeira captura no banco.'
+                    ? ``
+                    : ''
             );
             status.dataset.error = 'false';
         } catch (erro) {
             if (!document.hidden) {
-                texto('metrics-status', 'Não foi possível consultar as métricas no banco.');
+                texto('metrics-status', '');
                 status.dataset.error = 'true';
                 console.error('Falha ao atualizar métricas:', erro);
             }
@@ -192,11 +213,11 @@
         }
 
         if (!dados.alertas.length) {
-            mostrarVazio('Nenhuma ocorrência de alerta foi registrada no banco.');
+            mostrarVazio('');
         }
 
         contador.textContent = String(dados.total ?? dados.alertas.length);
-        status.textContent = 'Exibindo eventos registrados na tabela alerta.';
+        status.textContent = 'Exibindo alertas';
         recebeuDados = true;
     }
 
@@ -223,11 +244,11 @@
         } catch (erro) {
             if (!document.hidden) {
                 status.textContent = recebeuDados
-                    ? 'Não foi possível atualizar os eventos de alerta.'
-                    : 'Não foi possível consultar a tabela de alertas.';
+                    ? ''
+                    : '';
                 if (!recebeuDados) {
                     contador.textContent = '—';
-                    mostrarVazio('Alertas indisponíveis. Verifique a conexão com o banco.');
+                    mostrarVazio('');
                 }
                 console.error('Falha ao atualizar alertas:', erro);
             }

@@ -342,7 +342,7 @@ def buscar_dados_dashboard():
             if historico[tipo]
         ]
         atual["horario_formatado"] = horarios[-1] if horarios else None
-        return {"historico": historico, "atual": atual}
+        return {"historico": historico, "atual": atual, "kpis": buscar_kpis()}
     finally:
         if cursor is not None:
             cursor.close()
@@ -402,6 +402,91 @@ def buscar_alertas():
             })
 
         return {"alertas": alertas, "total": len(alertas)}
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conexao.close()
+
+
+def buscar_kpis():
+    """Calcula os quatro indicadores usando as últimas 24 horas de dados."""
+    conexao = mysql.connector.connect(**CONFIG_BANCO)
+    cursor = None
+    try:
+        cursor = conexao.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT tc.nome AS recurso, cap.valor, cap.horario, cap.id,
+                   m.limite_atencao
+            FROM captura cap
+            JOIN especificacao_tecnica et ON et.id = cap.fk_especificacao_tecnica
+            JOIN metrica m ON m.id = et.fk_metrica
+            JOIN componente c ON c.id = et.fk_componente
+            JOIN tipo_componente tc ON tc.id = c.fk_tipo_componente
+            WHERE et.fk_servidor = %s
+              AND et.ativo = 1
+              AND cap.horario >= NOW() - INTERVAL 24 HOUR
+              AND tc.nome IN ('CPU', 'RAM', 'Disco')
+            ORDER BY tc.nome, cap.horario, cap.id
+            """,
+            (ID_SERVIDOR,),
+        )
+        leituras = {}
+        total_leituras = 0
+        leituras_acima_atencao = 0
+        for linha in cursor.fetchall():
+            valor = float(linha["valor"])
+            leituras.setdefault(linha["recurso"], []).append(valor)
+            total_leituras += 1
+            if valor >= float(linha["limite_atencao"]):
+                leituras_acima_atencao += 1
+
+        pico = None
+        for recurso, valores in leituras.items():
+            valor_pico = max(valores)
+            if pico is None or valor_pico > pico["valor"]:
+                pico = {"recurso": recurso, "valor": valor_pico}
+
+        cursor.execute(
+            """
+            SELECT tc.nome AS recurso,
+                   COUNT(*) AS quantidade,
+                   SUM(CASE WHEN a.nivel = 'CRITICO' THEN 1 ELSE 0 END) AS criticos
+            FROM alerta a
+            JOIN captura cap ON cap.id = a.fk_captura
+            JOIN especificacao_tecnica et ON et.id = cap.fk_especificacao_tecnica
+            JOIN componente c ON c.id = et.fk_componente
+            JOIN tipo_componente tc ON tc.id = c.fk_tipo_componente
+            WHERE et.fk_servidor = %s
+              AND a.data >= NOW() - INTERVAL 24 HOUR
+            GROUP BY tc.nome
+            ORDER BY quantidade DESC, tc.nome
+            """,
+            (ID_SERVIDOR,),
+        )
+        alertas_por_recurso = cursor.fetchall()
+        recurso_mais_alertas = None
+        if alertas_por_recurso:
+            primeiro = alertas_por_recurso[0]
+            recurso_mais_alertas = {
+                "recurso": primeiro["recurso"],
+                "quantidade": int(primeiro["quantidade"]),
+            }
+        total_criticos = sum(int(linha["criticos"] or 0) for linha in alertas_por_recurso)
+
+        return {
+            "recurso_mais_alertas": recurso_mais_alertas,
+            "pico_utilizacao": pico,
+            "leituras_acima_atencao": {
+                "quantidade": leituras_acima_atencao,
+                "total": total_leituras,
+                "percentual": (
+                    leituras_acima_atencao / total_leituras * 100
+                    if total_leituras else 0
+                ),
+            },
+            "alertas_criticos_24h": total_criticos,
+        }
     finally:
         if cursor is not None:
             cursor.close()
