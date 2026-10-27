@@ -1,5 +1,6 @@
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from datetime import datetime
+from urllib.parse import urlparse, parse_qs
 import json
 import os
 import threading
@@ -13,7 +14,16 @@ import psutil
 # Configuração
 # ---------------------------------------------------------------------------
 PASTA_ATUAL = os.path.dirname(os.path.abspath(__file__))
-CAMINHO_ENV = os.path.abspath(os.path.join(PASTA_ATUAL, "..", "..", ".env.dev"))
+CAMINHO_ENV = os.environ.get("ENV_PATH") or next(
+    (
+        c for c in (
+            os.path.join(PASTA_ATUAL, ".env.dev"),
+            os.path.abspath(os.path.join(PASTA_ATUAL, "..", "..", ".env.dev")),
+        )
+        if os.path.exists(c)
+    ),
+    os.path.join(PASTA_ATUAL, ".env.dev"),
+)
 INTERVALO_GRAVACAO = 5
 LIMITE_HISTORICO = 30
 LIMITE_ALERTAS = 50
@@ -300,7 +310,7 @@ def loop_gravacao():
 # ---------------------------------------------------------------------------
 # APIs consumidas pela página servida neste mesmo processo Python.
 # ---------------------------------------------------------------------------
-def buscar_dados_dashboard():
+def buscar_dados_dashboard(id_servidor=ID_SERVIDOR):
     conexao = mysql.connector.connect(**CONFIG_BANCO)
     cursor = None
     try:
@@ -321,7 +331,7 @@ def buscar_dados_dashboard():
                 ORDER BY cap.horario DESC, cap.id DESC
                 LIMIT %s
                 """,
-                (ID_SERVIDOR, tipo, LIMITE_HISTORICO),
+                (id_servidor, tipo, LIMITE_HISTORICO),
             )
             linhas = cursor.fetchall()
             for linha in reversed(linhas):
@@ -342,14 +352,14 @@ def buscar_dados_dashboard():
             if historico[tipo]
         ]
         atual["horario_formatado"] = horarios[-1] if horarios else None
-        return {"historico": historico, "atual": atual, "kpis": buscar_kpis()}
+        return {"historico": historico, "atual": atual, "kpis": buscar_kpis(id_servidor)}
     finally:
         if cursor is not None:
             cursor.close()
         conexao.close()
 
 
-def buscar_alertas():
+def buscar_alertas(id_servidor=ID_SERVIDOR):
     conexao = mysql.connector.connect(**CONFIG_BANCO)
     cursor = None
     try:
@@ -378,7 +388,7 @@ def buscar_alertas():
             ORDER BY a.data DESC, a.id DESC
             LIMIT %s
             """,
-            (ID_SERVIDOR, LIMITE_ALERTAS),
+            (id_servidor, LIMITE_ALERTAS),
         )
 
         alertas = []
@@ -408,7 +418,7 @@ def buscar_alertas():
         conexao.close()
 
 
-def buscar_kpis():
+def buscar_kpis(id_servidor=ID_SERVIDOR):
     """Calcula os quatro indicadores usando as últimas 24 horas de dados."""
     conexao = mysql.connector.connect(**CONFIG_BANCO)
     cursor = None
@@ -429,7 +439,7 @@ def buscar_kpis():
               AND tc.nome IN ('CPU', 'RAM', 'Disco')
             ORDER BY tc.nome, cap.horario, cap.id
             """,
-            (ID_SERVIDOR,),
+            (id_servidor,),
         )
         leituras = {}
         for linha in cursor.fetchall():
@@ -442,11 +452,13 @@ def buscar_kpis():
             if pico is None or valor_pico > pico["valor"]:
                 pico = {"recurso": recurso, "valor": valor_pico}
 
-        uso_disco = psutil.disk_usage(os.path.abspath(os.sep))
-        espaco_livre_disco = {
-            "livre_gb": uso_disco.free / (1024 ** 3),
-            "total_gb": uso_disco.total / (1024 ** 3),
-        }
+        espaco_livre_disco = None
+        if id_servidor == ID_SERVIDOR:
+            uso_disco = psutil.disk_usage(os.path.abspath(os.sep))
+            espaco_livre_disco = {
+                "livre_gb": uso_disco.free / (1024 ** 3),
+                "total_gb": uso_disco.total / (1024 ** 3),
+            }
 
         cursor.execute(
             """
@@ -463,7 +475,7 @@ def buscar_kpis():
             GROUP BY tc.nome
             ORDER BY quantidade DESC, tc.nome
             """,
-            (ID_SERVIDOR,),
+            (id_servidor,),
         )
         alertas_por_recurso = cursor.fetchall()
         recurso_mais_alertas = None
@@ -498,11 +510,16 @@ class Servidor(SimpleHTTPRequestHandler):
         self.wfile.write(resposta)
 
     def do_GET(self):
-        caminho = self.path.split("?", 1)[0]
+        url = urlparse(self.path)
+        caminho = url.path
+        try:
+            id_servidor = int(parse_qs(url.query).get("id_servidor", [ID_SERVIDOR])[0])
+        except ValueError:
+            id_servidor = ID_SERVIDOR
 
         if caminho == "/dados":
             try:
-                self.responder_json(buscar_dados_dashboard())
+                self.responder_json(buscar_dados_dashboard(id_servidor))
             except Exception as erro:
                 print(f"[ERRO] Consulta de métricas falhou: {erro}")
                 self.responder_json(
@@ -513,7 +530,7 @@ class Servidor(SimpleHTTPRequestHandler):
 
         if caminho == "/alertas":
             try:
-                self.responder_json(buscar_alertas())
+                self.responder_json(buscar_alertas(id_servidor))
             except Exception as erro:
                 print(f"[ERRO] Consulta de alertas falhou: {erro}")
                 self.responder_json(

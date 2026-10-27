@@ -1,3 +1,4 @@
+function idServidorAtual() { const n = parseInt(new URLSearchParams(window.location.search).get("servidor"), 10); return n > 0 ? n : 2; }
 (() => {
     const status = document.getElementById('metrics-status');
     if (typeof Chart === 'undefined') {
@@ -112,7 +113,7 @@
         const limite = setTimeout(() => controller.abort(), 8000);
 
         try {
-            const resposta = await fetch('/dados', {
+            const resposta = await fetch('/dados?id_servidor=' + idServidorAtual(), {
                 cache: 'no-store',
                 signal: controller.signal,
             });
@@ -231,7 +232,7 @@
         const limite = setTimeout(() => controller.abort(), 8000);
 
         try {
-            const resposta = await fetch('/alertas', {
+            const resposta = await fetch('/alertas?id_servidor=' + idServidorAtual(), {
                 cache: 'no-store',
                 signal: controller.signal,
             });
