@@ -432,20 +432,21 @@ def buscar_kpis():
             (ID_SERVIDOR,),
         )
         leituras = {}
-        total_leituras = 0
-        leituras_acima_atencao = 0
         for linha in cursor.fetchall():
             valor = float(linha["valor"])
             leituras.setdefault(linha["recurso"], []).append(valor)
-            total_leituras += 1
-            if valor >= float(linha["limite_atencao"]):
-                leituras_acima_atencao += 1
 
         pico = None
         for recurso, valores in leituras.items():
             valor_pico = max(valores)
             if pico is None or valor_pico > pico["valor"]:
                 pico = {"recurso": recurso, "valor": valor_pico}
+
+        uso_disco = psutil.disk_usage(os.path.abspath(os.sep))
+        espaco_livre_disco = {
+            "livre_gb": uso_disco.free / (1024 ** 3),
+            "total_gb": uso_disco.total / (1024 ** 3),
+        }
 
         cursor.execute(
             """
@@ -477,14 +478,7 @@ def buscar_kpis():
         return {
             "recurso_mais_alertas": recurso_mais_alertas,
             "pico_utilizacao": pico,
-            "leituras_acima_atencao": {
-                "quantidade": leituras_acima_atencao,
-                "total": total_leituras,
-                "percentual": (
-                    leituras_acima_atencao / total_leituras * 100
-                    if total_leituras else 0
-                ),
-            },
+            "espaco_livre_disco": espaco_livre_disco,
             "alertas_criticos_24h": total_criticos,
         }
     finally:

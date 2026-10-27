@@ -91,12 +91,13 @@
         texto('kpi-pico', pico ? percentual(pico.valor) : '—');
         texto('kpi-pico-info', pico ? `${pico.recurso}` : '');
 
-        const acimaAtencao = dados.leituras_acima_atencao;
-        const possuiLeituras = acimaAtencao && acimaAtencao.total > 0;
-        texto('kpi-acima-atencao', possuiLeituras ? percentual(acimaAtencao.percentual) : '—');
-        texto('kpi-acima-atencao-info', possuiLeituras
-            ? `${acimaAtencao.quantidade} de ${acimaAtencao.total}`
-            : '');
+        const discoLivre = dados.espaco_livre_disco;
+        texto('kpi-disco-livre', discoLivre
+            ? `${formato.format(discoLivre.livre_gb)} GB`
+            : '—');
+        texto('kpi-disco-livre-info', discoLivre
+            ? `de ${formato.format(discoLivre.total_gb)} GB no total`
+            : 'Capacidade do disco indisponível');
 
         texto('kpi-criticos', String(dados.alertas_criticos_24h ?? 0));
         texto('kpi-criticos-info', '');
