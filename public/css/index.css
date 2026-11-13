@@ -125,15 +125,14 @@ a:focus-visible {
 }
 
 .logo-cabecalho {
-  display: flex;
-  align-items: center;
-  justify-self: start;
+  flex-shrink: 0;
 }
 
 .logo-cabecalho img {
   display: block;
   height: var(--logo-altura);
   width: auto;
+  max-width: none;
 }
 
 .menu {
@@ -536,33 +535,73 @@ a:focus-visible {
 }
 
 /* RESPONSIVO */
+
+/* Telas médias: 2 colunas */
 @media (max-width: 1000px) {
-  .servicos-lista {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .passos-lista,
-  .valores-lista {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 800px) {
-  .hero-conteudo,
-  .sobre-conteudo,
-  .rodape-colunas {
-    grid-template-columns: 1fr;
-  }
-
-  .metricas-conteudo {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 500px) {
   .servicos-lista,
   .passos-lista,
   .valores-lista {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Celulares e tablets pequenos */
+@media (max-width: 768px) {
+  .servicos-lista,
+  .passos-lista,
+  .valores-lista,
+  .hero-conteudo,
+  .sobre-conteudo,
+  .rodape-colunas,
+  .metricas-conteudo {
     grid-template-columns: 1fr;
+  }
+
+  .hero-conteudo,
+  .sobre-conteudo {
+    gap: 20px;
+  }
+
+  section {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  h1 {
+    font-size: 32px;
+  }
+
+  h2 {
+    font-size: 26px;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .cabecalho-conteudo {
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+  }
+
+  .menu {
+    justify-self: center;
+    gap: 14px;
+  }
+
+  .menu-link {
+    font-size: 14px;
+  }
+
+  .logo-cabecalho img {
+    height: calc(var(--logo-altura) * 0.8);
+  }
+}
+
+/* novo */
+@media (max-width: 480px) {
+  .menu {
+    display: none;
   }
 }
