@@ -19,6 +19,7 @@ var indexRouter = require("./src/routes/index");
 var usuarioRouter = require("./src/routes/usuarios");
 var empresasRouter = require("./src/routes/empresas");
 var servidoresRouter = require("./src/routes/servidores");
+var slackRouter = require("./src/routes/slack");
 
 
 require("./src/controllers/emailController")
@@ -33,6 +34,7 @@ app.use("/", indexRouter);
 app.use("/usuarios", usuarioRouter);
 app.use("/empresas", empresasRouter);
 app.use("/servidores", servidoresRouter);
+app.use("/slack", slackRouter);
 
 // Encaminha as requisições do dashboard para a API Python
 app.get(["/dados", "/alertas"], async (req, res) => {

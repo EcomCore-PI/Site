@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "app.js",
-"scripts": {
-  "start:web": "node app.js",
-  "start:monitoramento": "cd public/Monitoramento && python -u servidor.py",
-  "start": "concurrently --kill-others-on-fail --names web,monitoramento \"npm run start:web\" \"npm run start:monitoramento\"",
-  "dev": "nodemon --exec node app.js"
-},
+  "scripts": {
+    "start:web": "node app.js",
+    "start:monitoramento": "cd public/Monitoramento && python -u servidor.py",
+    "start": "concurrently --kill-others-on-fail --names web,monitoramento \"npm run start:web\" \"npm run start:monitoramento\"",
+    "dev": "nodemon --exec node app.js"
+  },
   "author": "Feito pelos desenvolvedores @ São Paulo Tech School / Bandtec Digital School",
   "license": "MIT",
   "dependencies": {
