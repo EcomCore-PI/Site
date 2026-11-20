@@ -77,9 +77,8 @@
                 mensagem_erro.innerHTML = "(Mensagem de erro para todos os campos em branco)";
                 finalizarAguardar();
                 return false;
-            }
-            else {
-                setInterval(sumirMensagem, 5000);
+            } else {
+                setTimeout(sumirMensagem, 5000);
             }
 
             fetch("/usuarios/autenticar", {
@@ -92,14 +91,8 @@
                     senhaServer: senhaVar
                 })
             }).then(function (resposta) {
-                console.log("ESTOU NO THEN DO entrar()!");
-
                 if (resposta.ok) {
-                    console.log(resposta);
-
                     resposta.json().then(json => {
-                        console.log(json);
-                        console.log(JSON.stringify(json));
                         sessionStorage.EMAIL_USUARIO = json.email;
                         sessionStorage.NOME_USUARIO = json.nome;
                         sessionStorage.ID_USUARIO = json.id;
@@ -107,36 +100,35 @@
                         sessionStorage.FK_EMPRESA = json.fk_empresa;
 
                         const cargo = String(json.cargo || "").trim().toLowerCase();
-                        const nomeUsuario = String(json.nome || "").trim().toLowerCase();
-                        const emailUsuario = String(json.email || "").trim().toLowerCase();
-                        const ehMarco = nomeUsuario.includes("marco") || emailUsuario.includes("marco");
-
-                        var baseMonitoramento = window.location.protocol + "//" + window.location.hostname + ":8000";
-                        var rotaDestino = ehMarco ? "/Individuais/Marco/cpu.html" : "/index.html";
-                        var urlMonitoramento = baseMonitoramento + rotaDestino;
+                        const baseMonitoramento = window.location.protocol + "//" + window.location.hostname + ":8000";
+                        const urlMonitoramento = baseMonitoramento + "/index.html";
 
                         if (["analista", "gestor", "admin"].includes(cargo)) {
                             fetch("/servidores/empresa/" + json.fk_empresa)
-                                .then(function (r) { return r.json(); })
+                                .then(function (r) {
+                                    if (!r.ok) throw new Error("Erro ao buscar servidores da empresa");
+                                    return r.json();
+                                })
                                 .then(function (lista) {
                                     if (!Array.isArray(lista) || lista.length === 0) {
-                                        if (ehMarco) {
-                                            sessionStorage.ID_SERVIDOR = 6;
-                                            window.location.assign(urlMonitoramento + "?servidor=6");
-                                            return;
-                                        }
                                         finalizarAguardar("Sua empresa ainda não possui servidor cadastrado.");
                                         return;
                                     }
-                                    sessionStorage.ID_SERVIDOR = lista[0].id;
-                                    window.location.assign(urlMonitoramento + "?servidor=" + lista[0].id);
-                                })
-                                .catch(function () {
-                                    if (ehMarco) {
-                                        sessionStorage.ID_SERVIDOR = 6;
-                                        window.location.assign(urlMonitoramento + "?servidor=6");
+
+                                    const servidor = lista[0];
+                                    const idServidor = servidor.id || servidor.id_servidor;
+
+                                    if (!idServidor) {
+                                        finalizarAguardar("Servidor cadastrado sem identificador válido.");
                                         return;
                                     }
+
+                                    sessionStorage.ID_SERVIDOR = idServidor;
+                                    const nomeParam = encodeURIComponent(json.nome || "Analista");
+                                    window.location.assign(`${urlMonitoramento}?servidor=${idServidor}&nome=${nomeParam}`);
+                                })
+                                .catch(function (erro) {
+                                    console.error(erro);
                                     finalizarAguardar("Não foi possível buscar o servidor da empresa.");
                                 });
                         } else if (cargo === "rh") {
@@ -147,8 +139,6 @@
                     });
 
                 } else {
-                    console.log("Houve um erro ao tentar realizar o login!");
-
                     resposta.text().then(texto => {
                         console.error(texto);
                         finalizarAguardar(texto);
