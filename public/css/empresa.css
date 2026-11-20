@@ -310,7 +310,8 @@ main {
 }
 
 .alterar,
-.deletar {
+.deletar,
+.reenviar {
   padding: 7px 14px;
   border: 1.5px solid;
   border-radius: 8px;
@@ -326,6 +327,17 @@ main {
 .alterar {
   color: var(--azul);
   border-color: rgba(0, 69, 143, 0.4);
+}
+
+.reenviar {
+  color: var(--azul-marinho);
+  border-color: rgba(19, 38, 58, 0.35);
+}
+
+.reenviar:hover {
+  color: #FFFFFF;
+  border-color: var(--azul-marinho);
+  background-color: var(--azul-marinho);
 }
 
 .alterar:hover {
@@ -356,24 +368,10 @@ main {
   grid-column: 1 / -1;
 }
 
-#formCadastro > label[for="senha"] {
-  grid-column: 1;
-  grid-row: 7;
-}
-
-#formCadastro > #senha {
-  grid-column: 1;
-  grid-row: 8;
-}
-
-#formCadastro > label[for="confirmarSenha"] {
-  grid-column: 2;
-  grid-row: 7;
-}
-
-#formCadastro > #confirmarSenha {
-  grid-column: 2;
-  grid-row: 8;
+.ajuda-convite {
+  margin-top: 18px;
+  font-size: 13px;
+  color: var(--linha-escura);
 }
 
 #formCadastro > label:first-child {
@@ -627,14 +625,6 @@ dialog#modalSenha .modal-acoes button[type="button"]:hover {
 
   .card {
     padding: 30px 20px 24px;
-  }
-
-  #formCadastro > label[for="senha"],
-  #formCadastro > #senha,
-  #formCadastro > label[for="confirmarSenha"],
-  #formCadastro > #confirmarSenha {
-    grid-column: 1 / -1;
-    grid-row: auto;
   }
 
   .user-item {

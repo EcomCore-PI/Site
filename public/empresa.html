@@ -17,7 +17,7 @@
             <img src="./assets/imgs/EcomCoresemfundo.png" alt="Logo EcomCore">
         </div>
 
-        <a class="btn-voltar" href="./login.html" style="text-decoration: none;">
+        <a class="btn-voltar" href="./login.html" onclick="sessionStorage.clear()" style="text-decoration: none;">
             Sair
         </a>
     </header>
@@ -50,15 +50,11 @@
                         Selecione o perfil
                     </option>
                     <option value="Analista">Analista</option>
-                    <option value="Gerente">Gestor</option>
+                    <option value="Gestor">Gestor</option>
                     <option value="RH">RH</option>
                 </select>
 
-                <label for="senha">SENHA</label>
-                <input type="password" id="senha" name="senha" placeholder="••••••••••••" minlength="8" required>
-
-                <label for="confirmarSenha">CONFIRMAÇÃO DE SENHA</label>
-                <input type="password" id="confirmarSenha" name="confirmarSenha" placeholder="••••••••••••" required>
+                <p class="ajuda-convite">Enviaremos um link por email para a pessoa definir a própria senha.</p>
 
                 <div class="btn-finalizar-wrap">
                     <button class="btn-finalizar" type="submit">

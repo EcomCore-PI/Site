@@ -24,13 +24,16 @@ var modalErro = document.getElementById("modalErro");
 var idEmEdicao = null;
 
 
-var NOME_DO_CARGO = { Analista: "ANALISTA", Gerente: "GESTOR", RH: "RH" };
+var NOME_DO_CARGO = { Analista: "ANALISTA", Gestor: "GESTOR", RH: "RH" };
 
 
 function chamarApi(rota, corpo) {
     return fetch("/usuarios/" + rota, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + (sessionStorage.TOKEN_SESSAO || "")
+        },
         body: JSON.stringify(corpo)
     }).then(function (resposta) {
         var ehJson = (resposta.headers.get("content-type") || "").includes("application/json");
@@ -77,12 +80,14 @@ function criarLinha(usuario) {
         '<div class="avatar"><img src="./assets/imgs/perfil-usuario.png" alt="Perfil do funcionário"></div>' +
         '<div class="user-info"><div class="nome"></div><div class="cargo"></div></div>' +
         '<div class="user-actions">' +
+        (usuario.convite_pendente ? '<button class="reenviar" type="button" data-acao="reenviar">REENVIAR CONVITE</button>' : '') +
         '<button class="alterar" type="button" data-acao="alterar">ALTERAR</button>' +
         '<button class="deletar" type="button" data-acao="deletar">DELETAR</button>' +
         '</div>';
 
     linha.querySelector(".nome").textContent = usuario.nome;
-    linha.querySelector(".cargo").textContent = NOME_DO_CARGO[usuario.cargo] || usuario.cargo;
+    linha.querySelector(".cargo").textContent = (NOME_DO_CARGO[usuario.cargo] || usuario.cargo) +
+        (usuario.convite_pendente ? " · convite pendente" : "");
 
     if (usuario.id == ID_LOGADO) {
         linha.querySelector(".deletar").remove();
@@ -99,23 +104,15 @@ formCadastro.addEventListener("submit", function (evento) {
     var nome = document.getElementById("nomeCompleto").value.trim();
     var email = document.getElementById("email").value.trim();
     var cargo = document.getElementById("cargo").value;
-    var senha = document.getElementById("senha").value;
-    var confirmacao = document.getElementById("confirmarSenha").value;
-
-    if (senha != confirmacao) {
-        alert("A senha e a confirmação de senha não são iguais.");
-        return;
-    }
-
     chamarApi("cadastrar", {
         nomeServer: nome,
         emailServer: email,
-        senhaServer: senha,
         cargoServer: cargo,
         fk_empresaServer: FK_EMPRESA
     }).then(function () {
         formCadastro.reset();
         carregarUsuarios();
+        alert("Convite enviado! A pessoa receberá um email para definir a senha.");
     }).catch(function (erro) {
         alert(erro.message);
     });
@@ -129,6 +126,13 @@ listaUsuarios.addEventListener("click", function (evento) {
     var linha = botao.closest(".user-item");
     var id = linha.dataset.id;
     var nome = linha.dataset.nome;
+
+    if (botao.dataset.acao == "reenviar") {
+        chamarApi("reenviar-convite", { idServer: id, fk_empresaServer: FK_EMPRESA })
+            .then(function () { alert("Convite reenviado por email."); })
+            .catch(function (erro) { alert(erro.message); });
+        return;
+    }
 
     if (botao.dataset.acao == "alterar") {
         idEmEdicao = id;
