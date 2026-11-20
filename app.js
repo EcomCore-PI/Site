@@ -22,8 +22,6 @@ var servidoresRouter = require("./src/routes/servidores");
 var slackRouter = require("./src/routes/slack");
 
 
-require("./src/controllers/emailController")
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "public")));

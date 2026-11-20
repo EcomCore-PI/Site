@@ -1,115 +1,96 @@
-var database = require("../database/config")
+var database = require("../database/config");
 
-function autenticar(email, senha) {
+function autenticar(email) {
     var instrucaoSql = `
-        SELECT
-            u.id,
-            u.nome,
-            u.email,
-            u.fk_empresa AS empresaId,
-            tc.nome_cargo AS cargo
+        SELECT u.id, u.nome, u.email, u.senha, u.fk_empresa AS empresaId,
+               tc.nome_cargo AS cargo
         FROM usuario u
         JOIN tipo_cargo tc ON tc.id = u.fk_cargo
-        WHERE u.email = ? AND u.senha = ?;
+        WHERE LOWER(u.email) = LOWER(?)
+        LIMIT 1;
     `;
-    return database.executar(instrucaoSql, [email, senha]);
+    return database.executar(instrucaoSql, [email]);
 }
 
-// "cargo" aqui é o NOME do cargo (rh, admin, analista, gestor).
-// A subquery converte para o id gravado em fk_cargo.
-function cadastrar(nome, email, senha, cargo, fk_empresa) {
+function cadastrarConvite(nome, email, cargo, fk_empresa, tokenHash, expiracao) {
     var instrucaoSql = `
-        INSERT INTO usuario (nome, email, senha, fk_cargo, fk_empresa)
-        VALUES (?, ?, ?, (SELECT id FROM tipo_cargo WHERE nome_cargo = ?), ?);
+        INSERT INTO usuario
+            (nome, email, senha, enviou_email, fk_empresa, fk_cargo,
+             token_ativacao_hash, token_ativacao_expira)
+        VALUES (?, ?, NULL, 1, ?,
+            (SELECT id FROM tipo_cargo WHERE nome_cargo = ?), ?, ?);
     `;
-    return database.executar(instrucaoSql, [nome, email, senha, cargo, fk_empresa]);
+    return database.executar(instrucaoSql, [nome, email, fk_empresa, cargo, tokenHash, expiracao]);
 }
 
-function remover(id, fk_empresa) {
-    var instrucaoSql = `
-        DELETE FROM usuario WHERE id = ? AND fk_empresa = ?;
-    `;
-    return database.executar(instrucaoSql, [id, fk_empresa]);
+function buscarPorToken(hash) {
+    return database.executar(`
+        SELECT id, senha FROM usuario
+        WHERE token_ativacao_hash = ? AND token_ativacao_expira > NOW()
+        LIMIT 1;
+    `, [hash]);
+}
+
+function buscarPorEmail(email) {
+    return database.executar(`SELECT id, nome, email FROM usuario WHERE LOWER(email) = LOWER(?) LIMIT 1`, [email]);
+}
+
+function buscarConvitePendente(id, fk_empresa) {
+    return database.executar(`
+        SELECT id, nome, email FROM usuario
+        WHERE id = ? AND fk_empresa = ? AND senha IS NULL
+        LIMIT 1;
+    `, [id, fk_empresa]);
+}
+
+function atualizarToken(id, tokenHash, expiracao) {
+    return database.executar(`UPDATE usuario SET token_ativacao_hash = ?, token_ativacao_expira = ? WHERE id = ?`, [tokenHash, expiracao, id]);
+}
+
+function definirSenha(id, senhaHash, tokenHash) {
+    return database.executar(`
+        UPDATE usuario
+        SET senha = ?, token_ativacao_hash = NULL, token_ativacao_expira = NULL
+        WHERE id = ? AND token_ativacao_hash = ? AND token_ativacao_expira > NOW();
+    `, [senhaHash, id, tokenHash]);
+}
+
+function atualizarSenha(id, senhaHash) {
+    return database.executar(`UPDATE usuario SET senha = ? WHERE id = ?`, [senhaHash, id]);
 }
 
 function atualizar(id, nova_senha, fk_empresa) {
-    var instrucaoSql = `
-        UPDATE usuario SET senha = ? WHERE id = ? AND fk_empresa = ?;
-    `;
-    return database.executar(instrucaoSql, [nova_senha, id, fk_empresa]);
+    return database.executar(
+        `UPDATE usuario SET senha = ?, token_ativacao_hash = NULL, token_ativacao_expira = NULL WHERE id = ? AND fk_empresa = ?`,
+        [nova_senha, id, fk_empresa]
+    );
+}
+
+function remover(id, fk_empresa) {
+    return database.executar(`DELETE FROM usuario WHERE id = ? AND fk_empresa = ?`, [id, fk_empresa]);
 }
 
 function listar(fk_empresa) {
-    var instrucaoSql = `
-        SELECT u.id, u.nome, u.email, tc.nome_cargo AS cargo
+    return database.executar(`
+        SELECT u.id, u.nome, u.email, tc.nome_cargo AS cargo,
+               (u.senha IS NULL) AS convite_pendente
         FROM usuario u
         JOIN tipo_cargo tc ON tc.id = u.fk_cargo
         WHERE u.fk_empresa = ?
         ORDER BY FIELD(tc.nome_cargo, 'rh', 'gestor', 'analista', 'admin'), u.nome;
-    `;
-    return database.executar(instrucaoSql, [fk_empresa]);
+    `, [fk_empresa]);
 }
-
-function listarPorNome(fk_empresa, nome) {
-    var instrucaoSql = `
-        SELECT u.nome, u.email, tc.nome_cargo AS cargo
-        FROM usuario u
-        JOIN tipo_cargo tc ON tc.id = u.fk_cargo
-        WHERE u.fk_empresa = ? AND u.nome = ?;
-    `;
-    return database.executar(instrucaoSql, [fk_empresa, nome]);
-}
-
-function listarPorCargo(fk_empresa, cargo) {
-    var instrucaoSql = `
-        SELECT u.nome, u.email, tc.nome_cargo AS cargo
-        FROM usuario u
-        JOIN tipo_cargo tc ON tc.id = u.fk_cargo
-        WHERE u.fk_empresa = ? AND tc.nome_cargo = ?;
-    `;
-    return database.executar(instrucaoSql, [fk_empresa, cargo]);
-}
-
-function listarPorNomeCargo(fk_empresa, nome, cargo) {
-    var instrucaoSql = `
-        SELECT u.nome, u.email, tc.nome_cargo AS cargo
-        FROM usuario u
-        JOIN tipo_cargo tc ON tc.id = u.fk_cargo
-        WHERE u.fk_empresa = ? AND u.nome = ? AND tc.nome_cargo = ?;
-    `;
-    return database.executar(instrucaoSql, [fk_empresa, nome, cargo]);
-}
-
-function esqueceuSenha(senha, email, id, cargo) {
-    var instrucaoSql = `
-        UPDATE usuario
-        SET senha = ?, email = ?
-        WHERE id = ?
-        AND fk_cargo = (SELECT id FROM tipo_cargo WHERE nome_cargo = ?);
-    `;
-    return database.executar(instrucaoSql, [senha, email, id, cargo]);
-}
-
-function buscarEmailPendentes() {
-    var instrucaoSql = `
-        SELECT u.id, u.nome, u.email, u.senha
-        FROM usuario u
-        JOIN tipo_cargo c ON c.id = u.fk_cargo
-        WHERE c.nome_cargo = 'rh' AND u.enviou_email = 0;
-    `;
-    return database.executar(instrucaoSql);
-}
-
 
 module.exports = {
     autenticar,
-    cadastrar,
-    remover,
+    cadastrarConvite,
+    buscarPorToken,
+    buscarPorEmail,
+    buscarConvitePendente,
+    atualizarToken,
+    definirSenha,
+    atualizarSenha,
     atualizar,
-    listar,
-    listarPorNome,
-    listarPorCargo,
-    listarPorNomeCargo,
-    esqueceuSenha,
-    buscarEmailPendentes
+    remover,
+    listar
 };

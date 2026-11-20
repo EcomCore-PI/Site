@@ -53,6 +53,7 @@
                             <input id="senha_input" type="password" placeholder="******">
                         </div>
                         <button class="botao-entrar" onclick="entrar()">Entrar</button>
+                        <a class="link-recuperacao" href="esqueci-senha.html">Esqueci minha senha</a>
                     </div>
 
                     <div id="div_aguardar" class="loading-div" style="display: none;">
@@ -98,6 +99,7 @@
                         sessionStorage.ID_USUARIO = json.id;
                         sessionStorage.CARGO_USUARIO = json.cargo;
                         sessionStorage.FK_EMPRESA = json.fk_empresa;
+                        sessionStorage.TOKEN_SESSAO = json.token;
 
                         const cargo = String(json.cargo || "").trim().toLowerCase();
                         const baseMonitoramento = window.location.protocol + "//" + window.location.hostname + ":8000";

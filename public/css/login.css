@@ -250,6 +250,15 @@ button:focus-visible {
   background-color: var(--azul-marinho);
 }
 
+.link-recuperacao {
+  display: inline-block;
+  margin-top: 18px;
+  color: var(--azul);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
 .alerta_erro {
   display: flex;
   justify-content: center;

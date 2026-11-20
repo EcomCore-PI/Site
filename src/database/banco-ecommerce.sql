@@ -53,11 +53,13 @@ CREATE TABLE local_empresa (
 CREATE TABLE usuario (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nome VARCHAR(100),
-    email VARCHAR(300),
-    senha VARCHAR(255),
+    email VARCHAR(300) NOT NULL UNIQUE,
+    senha VARCHAR(255) NULL,
     enviou_email TINYINT(1),
     fk_empresa INT,
     fk_cargo INT,
+    token_ativacao_hash CHAR(64) NULL,
+    token_ativacao_expira DATETIME NULL,
 
     CONSTRAINT fk_usuario_empresa
         FOREIGN KEY (fk_empresa)
